@@ -18,7 +18,7 @@ void split_string(const std::string& str, Container& cont) {
 
 std::string load_file(std::string path) {
     std::ifstream t(path);
-    if (!t) std::cerr << "Error opening file." << std::endl;
+    if (!t) std::cerr << "Error opening file. Please correct the file path." << std::endl;
     std::stringstream buffer;
     buffer << t.rdbuf();
 
@@ -112,8 +112,8 @@ void save(uint16_t* pdata, RGB888Pixel * s_xxxImage, uint32_t size, int32_t widt
 }
 
 std::vector<std::string> load_tasks(std::string path) {
-    std::string task_raw = load_file(path);
 
+    std::string task_raw = load_file(path);
     std::vector<std::string> task_list;
     split_string(task_raw, task_list);
 //    std::copy(task_list.begin(), task_list.end(), std::ostream_iterator<std::string>(std::cout, "\n"));
