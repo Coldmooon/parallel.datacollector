@@ -61,8 +61,11 @@ typedef bool (*NeedImageCb)(void* pData);
 
 typedef int32_t RenderWindow;
 
-typedef void (*keyCallback)(unsigned char key, int32_t x, int32_t y);
-typedef void (*FunckeyCallback)(int key, int32_t x, int32_t y);
+// for c++11 or later
+template<typename T>
+using keyCallback = void (*) (T key, int32_t x, int32_t y);
+// for elder
+//typedef void (*keyCallback)(unsigned char key, int32_t x, int32_t y);
 
 class SampleRender
 {
@@ -81,8 +84,15 @@ public:
 	void setSubWinPosition(WinHint& winhint);
 
 	virtual void draw(RenderWindow win, uint8_t* pRgbBuffer, uint32_t size, uint32_t width, uint32_t height, ImiImageFrame** pFrame=NULL);
-	virtual void setKeyCallback(keyCallback keyhandle) {m_keyboard = keyhandle;};
-	virtual void setFuncKeyCallback(FunckeyCallback keyhandle) {m_funckeyboard = keyhandle;};
+
+//	virtual void setKeyCallback(keyCallback keyhandle) {m_keyboard = keyhandle;};
+
+//    template<typename T>
+//	virtual void setKeyCallback(keyCallback<T> keyhandle) {m_keyboard = keyhandle;};
+	virtual void setKeyCallback(keyCallback<unsigned char> keyhandle) {m_keyboard = keyhandle;};
+	virtual void setKeyCallback(keyCallback<int> keyhandle) {m_funckeyboard = keyhandle;};
+//	virtual void setFuncKeyCallback(FunckeyCallback keyhandle) {m_funckeyboard = keyhandle;};
+
 	virtual void draw(uint8_t* pRgbBuffer, uint32_t size, const WinHint& rect);
 	virtual void drawSkeleton(const ImiImageFrame* pFrame, WinHint& winhint);
 	virtual void drawBone(const ImiSkeletonData* pSkeletonData, ImiSkeletonPositionIndex first, ImiSkeletonPositionIndex second, int32_t width, int32_t height, WinHint& winhint);
@@ -92,6 +102,8 @@ public:
 protected:
 	virtual void display();
 	virtual bool initOpenGL(int32_t argc, char **argv);
+
+//    template<typename T>
 	virtual void onKey(unsigned char key, int32_t x, int32_t y);
     virtual void onFuncKey(int key, int32_t x, int32_t y);
 
@@ -104,7 +116,9 @@ private:
 	static void glutDisplay();
 	static void glutMouse(int button, int state, int x, int y);
 	static void glutXYMouse(int x, int y);
-	static void glutKeyboard(unsigned char key, int x, int y);
+
+	template <typename T>
+	static void glutKeyboard(T key, int x, int y);
 	static void glutWindowReshape(int width, int height);
     static void glutFuncKeyboard(int key, int x, int y);
 
@@ -122,8 +136,9 @@ private:
 	
 	WinHint 		m_hint;
 
-	keyCallback m_keyboard;
-    FunckeyCallback m_funckeyboard;
+	keyCallback<unsigned char> m_keyboard;
+	keyCallback<int> m_funckeyboard;
+//    FunckeyCallback m_funckeyboard;
 	uint32_t 		m_glWin;
 	
 	static POSITION	m_CursorPos;

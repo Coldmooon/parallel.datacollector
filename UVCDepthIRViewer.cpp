@@ -21,17 +21,14 @@ All rights reserved.
 #include <sys/time.h>
 #endif
 
-#include <sstream>
-#include <fstream>
 #include <vector>
 #include <iostream>
-#include <iterator>
-#include <regex>
 #include <GL/freeglut.h>
 
 // Imi Head File
 #include "ImiNect.h"
 #include "ImiCamera.h"
+#include "ImiCameraPrivate.h"
 
 // UI
 #include "Render.h"
@@ -47,6 +44,7 @@ ImiDeviceAttribute* g_DeviceAttr = NULL;
 // device handle
 ImiDeviceHandle g_ImiDevice    = NULL;
 ImiCameraHandle g_cameraDevice = NULL;
+int camera_index = 0;
 
 // stream handles
 ImiStreamHandle g_streams[10];
@@ -150,7 +148,7 @@ int start()
     printf("Get %d Connected ImiDevice.\n", deviceCount);
 
     //3.imiOpenDevice()
-    ret = imiOpenDevice(g_DeviceAttr[0].uri, &g_ImiDevice, 0);
+    ret = imiOpenDevice(g_DeviceAttr[camera_index].uri, &g_ImiDevice, 0);
     if(0 != ret)
     {
         printf("Open ImiDevice Failed! ret = %d\n", ret);
@@ -159,7 +157,7 @@ int start()
     printf("ImiDevice Opened.\n");
 
 
-    if(g_DeviceAttr[0].productId == 0x0304 || g_DeviceAttr[0].productId == 0x0303 || g_DeviceAttr[0].productId == 0x0307 || g_DeviceAttr[0].productId == 0x0308)
+    if(g_DeviceAttr[camera_index].productId == 0x0304 || g_DeviceAttr[camera_index].productId == 0x0303 || g_DeviceAttr[camera_index].productId == 0x0307 || g_DeviceAttr[camera_index].productId == 0x0308)
     {
         g_bisPortraitDevice = true;
         g_width = 480;
@@ -199,6 +197,7 @@ int start()
 
     //5.imiOpenStream()
     ret = imiOpenStream(g_ImiDevice, IMI_DEPTH_IR_FRAME, NULL, NULL, &g_streams[g_streamNum++]);
+    std::cout << imiGetLastError() << std::endl;
     if(0 != ret)
     {
         printf("Open Depth Stream Failed! ret = %d\n", ret);
@@ -208,7 +207,6 @@ int start()
 
     // imiCamSetFramesSync to set Color Depth_IR sync
 
-    //�����豸 ��·ͬ�� �����ͬ������
     if(!g_bisPortraitDevice)
     {
         ret = imiCamSetFramesSync(g_cameraDevice, true);
@@ -234,7 +232,6 @@ static bool needImage(void* pData)
     ImiCameraFrame* pCamFrame = NULL;
     uint32_t nFrameSize = g_width * g_height;
 
-//    tasks = load_tasks("config.txt");
 //    std::copy(tasks.begin(), tasks.end(), std::ostream_iterator<std::string>(std::cout, "\n"));
 
     if(!s_bDepth_IRFrameOK)
@@ -322,7 +319,6 @@ static bool needImage(void* pData)
 
         s_color_t = pCamFrame->timeStamp;
         s_bColorFrameOK = true;
-
     }
 
     if(s_bColorFrameOK && s_bDepth_IRFrameOK)
@@ -380,8 +376,8 @@ static bool needImage(void* pData)
         }
 
         std::string task_name = tasks[task_id];
-        g_pRender->drawString("Task List: ", 650, 425, 0.2,0.4,1);
-        for (int x = 700, y = 455, i = 0; i < tasks.size(); ++i, x+=130) {
+        g_pRender->drawString("Task List: ", 1925, 40, 0.2,0.4,1);
+        for (int x = 1940, y = 70, i = 0; i < tasks.size(); ++i, y+=30) {
             std::string text = "[" + std::to_string(i) + "] " + tasks[i];
             if (i == task_id)
                 g_pRender->drawString(text.c_str(), x, y, 1,1.,0);
@@ -419,35 +415,12 @@ static bool needImage(void* pData)
 }
 
 // keyboard event callback to save frames
-void keyboardFun(unsigned char key, int32_t x, int32_t y)
+template<typename T>
+void keyboardFun(T key, int32_t x, int32_t y)
 {
-    tasks = load_tasks("config.txt");
-
-    if (key >= 48 && key <= 57) {
-        int8_t tmp = task_id;
-        task_id = key - '0';
-        if (task_id >= tasks.size()) {
-            printf("ERROR: Please choose the task ID from %d to %d \n", 0, tasks.size() - 1);
-            task_id = tmp;
-        }
-        printf("Current task ID %d: %s \n", task_id, tasks[task_id].c_str());
-    }
-    switch (key)
-    {
-        case 'S':
-        case 's':
-            g_bSave = true;
-            break;
-        default:
-            printf("\n");
-            break;
-    }
-}
-
-// keyboard event callback to save frames
-void keyboardFun_func(int key, int32_t x, int32_t y) {
-    tasks = load_tasks("config.txt");
+    tasks = load_tasks("./config.txt");
     int8_t tmp = task_id;
+
     switch (key)
     {
         case GLUT_KEY_UP:
@@ -460,6 +433,21 @@ void keyboardFun_func(int key, int32_t x, int32_t y) {
             break;
         case GLUT_KEY_RIGHT:
             break;
+        case 's':
+            g_bSave = true;
+            break;
+        default:
+            printf("\n");
+            break;
+    }
+
+    if (key >= 48 && key <= 57) {
+        task_id = key - '0';
+        if (task_id < 0 || task_id >= tasks.size()) {
+            printf("ERROR: Please choose the task ID from %d to %d \n", 0, tasks.size() - 1);
+            task_id = tmp;
+        }
+        printf("Current task ID %d: %s \n", task_id, tasks[task_id].c_str());
     }
 
     if (task_id >= tasks.size()) {
@@ -468,6 +456,31 @@ void keyboardFun_func(int key, int32_t x, int32_t y) {
     }
     printf("Current task ID %d: %s \n", task_id, tasks[task_id].c_str());
 }
+
+// keyboard event callback to save frames
+//void keyboardFun_func(int key, int32_t x, int32_t y) {
+//    tasks = load_tasks("./config.txt");
+//    int8_t tmp = task_id;
+//    switch (key)
+//    {
+//        case GLUT_KEY_UP:
+//            task_id++;
+//            break;
+//        case GLUT_KEY_DOWN:
+//            task_id--;
+//            break;
+//        case GLUT_KEY_LEFT:
+//            break;
+//        case GLUT_KEY_RIGHT:
+//            break;
+//    }
+//
+//    if (task_id >= tasks.size()) {
+//        printf("ERROR: Please choose the task ID from %d to %d \n", 0, tasks.size() - 1);
+//        task_id = tmp;
+//    }
+//    printf("Current task ID %d: %s \n", task_id, tasks[task_id].c_str());
+//}
 
 int Exit()
 {
@@ -482,8 +495,9 @@ int Exit()
 
 int main(int argc, char** argv)
 {
-    int ret = start();
+    camera_index = atoi(argv[1]);
 
+    int ret = start();
     if(ret != 0)
     {
         printf("------ exit ------\n");
@@ -491,13 +505,14 @@ int main(int argc, char** argv)
         getchar();
     }
 
-    tasks = load_tasks("config.txt");
+    tasks = load_tasks("./config.txt");
     //6.create window and set read Stream frame data callback
-    g_pRender = new SampleRender("UVCDepthIRViewer", g_width * 3, g_height); // window title & size
+    g_pRender = new SampleRender("UVCDepthIRViewer", g_width * 3 + 300, g_height); // window title & size
     g_pRender->init(argc, argv);
     g_pRender->setDataCallback(needImage, NULL);
-    g_pRender->setFuncKeyCallback(keyboardFun_func);
-    g_pRender->setKeyCallback(keyboardFun);
+//    g_pRender->setKeyCallback(keyboardFun_func);
+    g_pRender->setKeyCallback(keyboardFun<int>);
+    g_pRender->setKeyCallback(keyboardFun<unsigned char>);
     g_pRender->run();
 
     return Exit();

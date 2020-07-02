@@ -34,7 +34,9 @@ POSITION SampleRender::m_CursorPos;
 
 SampleRender* SampleRender::g_pSampleRender = NULL;
 
-void SampleRender::glutKeyboard(unsigned char key, int x, int y)
+
+template <typename T>
+void SampleRender::glutKeyboard(T key, int x, int y)
 {
 	g_pSampleRender->onKey(key, x, y);
 }
@@ -615,21 +617,9 @@ void SampleRender::onKey(unsigned char key, int32_t x, int32_t y)
 
 void SampleRender::onFuncKey(int key, int32_t x, int32_t y)
 {
-//    switch (key)
-//    {
-//        case GLUT_KEY_UP:
-//            break;
-//        case GLUT_KEY_DOWN:
-//            break;
-//        case GLUT_KEY_LEFT:
-//            break;
-//        case GLUT_KEY_RIGHT:
-//            break;
-//    }
     if (m_funckeyboard) {
         m_funckeyboard(key, x, y);
     }
-
 }
 
 void SampleRender::glutWindowReshape(int width, int height)
