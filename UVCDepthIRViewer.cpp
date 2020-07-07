@@ -24,6 +24,7 @@ All rights reserved.
 #include <vector>
 #include <iostream>
 #include <GL/freeglut.h>
+#include <memory>
 
 // Imi Head File
 #include "ImiNect.h"
@@ -46,25 +47,19 @@ ImiCamAttribute*    g_pCameraAttr = NULL; // UVC
 // device handle
 ImiDeviceHandle * g_ImiDevice    = NULL;
 ImiCameraHandle * g_cameraDevice = NULL;
-int8_t camera_index = 0;
 uint32_t deviceCount = 0;
 int32_t deviceCameraCount = 0;
 
+// parse camera specified
+std::vector<int8_t> cameras;
+
 // stream handles
-ImiStreamHandle g_streams[10];
-uint32_t g_streamNum = 0;
-static int countDepth = 0 ;
-static int countUVC = 0 ;
-
-
+ImiStreamHandle * g_streams = NULL;
 
 // switch of frame sync
 bool g_bNeedFrameSync = false;
-int32_t g_width  = 640;
-int32_t g_height = 480;
-
-const int32_t res_width = 640;
-const int32_t res_height = 480;
+const int32_t g_width  = 640;
+const int32_t g_height = 480;
 
 bool g_bisPortraitDevice = false;
 
@@ -98,10 +93,11 @@ int stop()
             imiCamClose(g_cameraDevice[k]);
             g_cameraDevice[k] = NULL;
         }
+        delete [] g_cameraDevice;
     }
 
     //7.imiCloseStream()
-    for(uint32_t num = 0; num < g_streamNum; ++num)
+    for(uint32_t num = 0; num < deviceCount; ++num)
     {
         if(NULL != g_streams[num])
         {
@@ -117,14 +113,20 @@ int stop()
             imiCloseDevice(g_ImiDevice[k]);
             g_ImiDevice[k] = NULL;
         }
+        delete [] g_ImiDevice;
     }
 
     //9.imiReleaseDeviceList
     if(NULL != g_DeviceAttr)
     {
         imiReleaseDeviceList(&g_DeviceAttr);
-        g_DeviceAttr = NULL;
+//        g_DeviceAttr = NULL;
+        delete [] g_DeviceAttr;
     }
+
+// Depth + IR
+    destroyCamAttrList();
+    delete [] g_pCameraAttr; // UVC
 
     //10.imiDestroy()
     imiDestroy();
@@ -135,11 +137,6 @@ int stop()
 
 int start()
 {
-    g_streamNum = 0;
-    countUVC = 0;
-    countDepth = 0;
-
-
     int ret = imiInitialize();
     if(0 != ret)
     {
@@ -149,7 +146,6 @@ int start()
     printf("ImiNect Init Success.\n");
 
     //2.imiGetDeviceList()
-
     imiGetDeviceList(&g_DeviceAttr, &deviceCount);
     if((deviceCount <= 0) || (NULL == g_DeviceAttr))
     {
@@ -158,8 +154,10 @@ int start()
     }
     printf("Get %d Connected ImiDevice.\n", deviceCount);
 
+    deviceCount = deviceCount > cameras.size()? cameras.size(): deviceCount;
+
     //3.imiOpenDevice()
-    g_ImiDevice    = new ImiDeviceHandle[deviceCount];
+    g_ImiDevice = new ImiDeviceHandle[deviceCount];
     for (int i = 0; i < deviceCount; ++i) {
         ret = imiOpenDevice(g_DeviceAttr[i].uri, &g_ImiDevice[i], 0);
         if(0 != ret)
@@ -170,14 +168,8 @@ int start()
         printf("ImiDevice %d Opened.\n", i);
     }
 
-    if(g_DeviceAttr[camera_index].productId == 0x0304 || g_DeviceAttr[camera_index].productId == 0x0303 || g_DeviceAttr[camera_index].productId == 0x0307 || g_DeviceAttr[camera_index].productId == 0x0308)
-    {
-        g_bisPortraitDevice = true;
-        g_width = 480;
-        g_height = 640;
-    }
-
     ret = getCamAttrList(&g_pCameraAttr, &deviceCameraCount);
+    deviceCameraCount = deviceCameraCount > cameras.size()? cameras.size(): deviceCameraCount;
     if (ret != 0 || NULL == g_pCameraAttr || deviceCount != deviceCameraCount)
     {
         printf("getCamAttrList Failed! ret = %d\n", ret);
@@ -186,6 +178,7 @@ int start()
 
     // open UVC camera
     g_cameraDevice = new ImiCameraHandle[deviceCount];
+    g_streams = new ImiStreamHandle[deviceCount];
     for (int i = 0; i < deviceCount; ++i) {
         ret = imiCamOpenURI(g_pCameraAttr[i].uri, &g_cameraDevice[i]);
         if(0 != ret)
@@ -193,17 +186,8 @@ int start()
             printf("Open UVC Camera %d Failed! ret = %d\n", i, ret);
             return stop();
         }
-        printf("Open UVC Camera %d Success  %s\n", i, g_pCameraAttr[0].uri);
+        printf("Open UVC Camera %d Success  %s\n", i, g_pCameraAttr[i].uri);
     }
-
-//    // open UVC camera
-//    ret = imiCamOpen(&g_cameraDevice);
-//    if(0 != ret)
-//    {
-//        printf("Open UVC Camera Failed! ret = %d\n", ret);
-//        return stop();
-//    }
-//    printf("Open UVC Camera Success\n");
 
     ImiCameraFrameMode pMode =   {CAMERA_PIXEL_FORMAT_RGB888, 640,  480,  24};
 
@@ -213,7 +197,7 @@ int start()
         pMode.resolutionY = 640;
     }
 
-    // open camera stream
+    // open stream
     for (int i = 0; i < deviceCount; ++i) {
         ret = imiCamStartStream(g_cameraDevice[i], &pMode);
         if(0 != ret)
@@ -229,7 +213,7 @@ int start()
         printf("imiSetImageRegistration ret = %d\n", ret);
 
         //5.imiOpenStream()
-        ret = imiOpenStream(g_ImiDevice[i], IMI_DEPTH_IR_FRAME, NULL, NULL, &g_streams[g_streamNum++]);
+        ret = imiOpenStream(g_ImiDevice[i], IMI_DEPTH_IR_FRAME, NULL, NULL, &g_streams[i]);
         std::cout << imiGetLastError() << std::endl;
         if(0 != ret)
         {
@@ -247,110 +231,140 @@ int start()
     return 0;
 }
 
+bool drawtexts(std::vector<std::string> tasks, int8_t task_id) {
+    std::string task_name = tasks[task_id];
+    g_pRender->drawString("Task List: ", 1925, 40, 0.2, 0.4, 1);
+    for (int x = 1940, y = 70, i = 0; i < tasks.size(); ++i, y += 30) {
+        std::string text = "[" + std::to_string(i) + "] " + tasks[i];
+        if (i == task_id)
+            g_pRender->drawString(text.c_str(), x, y, 1, 1., 0);
+        else
+            g_pRender->drawString(text.c_str(), x, y, 0.2, 0.4, 1);
+    }
+    return true;
+}
+
+bool get_frames(ImiStreamHandle g_DepthIR_streams, ImiCameraHandle g_camera_Device, RGB888Pixel* s_colorImage, RGB888Pixel* s_depthImage, RGB888Pixel* s_IRImage=NULL) {
+
+    if ( NULL != g_DepthIR_streams) {
+
+        int framesize = g_width * g_height;
+        if(NULL == s_depthImage && NULL == s_IRImage)
+            std::cerr << "ERROR: no Depth / IR pixel container provided..";
+
+        ImiImageFrame *imiFrame = NULL;
+        if (0 != imiReadNextFrame(g_DepthIR_streams, &imiFrame, 100))
+            return false;
+
+        if (NULL == imiFrame)
+            return false;
+
+        if (NULL != s_depthImage) {
+            uint16_t *pde = (uint16_t *) imiFrame->pData;
+            for (uint32_t i = 0; i < framesize; ++i) {
+                s_depthImage[i].r = pde[i] >> 3;
+                s_depthImage[i].g = s_depthImage[i].r;
+                s_depthImage[i].b = s_depthImage[i].r;
+            }
+        }
+
+        if (NULL != s_IRImage) {
+            uint16_t *pIR = (uint16_t *) imiFrame->pData + framesize;
+            for (uint32_t i = 0; i < framesize; ++i) {
+                s_IRImage[i].r = pIR[i] >> 2;
+                s_IRImage[i].g = s_IRImage[i].r;
+                s_IRImage[i].b = s_IRImage[i].r;
+            }
+        }
+
+        imiReleaseFrame(&imiFrame);
+        return true;
+    }
+
+    if (NULL != g_camera_Device) {
+        if ( NULL == s_colorImage)
+            std::cerr << "ERROR: no UVC pixel container provided..";
+
+        ImiCameraFrame *pCamFrame = NULL;
+        if (0 != imiCamReadNextFrame(g_camera_Device, &pCamFrame, 100))
+            return false;
+
+        if (NULL == pCamFrame)
+            return false;
+
+        memcpy((void *) s_colorImage, (const void *) pCamFrame->pData, pCamFrame->size);
+
+        imiCamReleaseFrame(&pCamFrame);
+        return true;
+    }
+
+    return false;
+}
+
 // window callback, called by SampleRender::display()
 static bool needImage(void* pData)
 {
-//    static RGB888Pixel s_depthImage[res_width * res_height];
-//    static RGB888Pixel s_irImage[res_width * res_height];
-//    static RGB888Pixel s_colorImage[res_width * res_height];
+    // method 1： define a 2-D array at runtime by 'new' method. Note: do not delete them in this function if declare them static varables.
+    // static RGB888Pixel (* s_depthImages)[res_width * res_height] = new RGB888Pixel [deviceCount][g_width * g_height];
+    // static RGB888Pixel (* s_colorImages)[res_width * res_height] = new RGB888Pixel [deviceCount][g_width * g_height];
+    // static RGB888Pixel (* s_irImages)[res_width * res_height] = new RGB888Pixel [deviceCount][g_width * g_height];
 
-//    static RGB888Pixel (* s_depthImages)[res_width * res_height] = new RGB888Pixel [deviceCount][res_width * res_height];
-//    static RGB888Pixel (* s_irImages)[res_width * res_height] = new RGB888Pixel [deviceCount][res_width * res_height];
-//    static RGB888Pixel (* s_colorImages)[res_width * res_height] = new RGB888Pixel [deviceCount][res_width * res_height];//
-//
-    static RGB888Pixel s_depthImages[2][res_width * res_height];
-    static RGB888Pixel s_irImages[2][res_width * res_height];
-    static RGB888Pixel s_colorImages[2][res_width * res_height];
+    // method 2： define a 2-D array at runtime using smart pointer, which is a little unstable.
+    std::unique_ptr<RGB888Pixel[]> s_colorImages_data;
+    std::unique_ptr<RGB888Pixel[]> s_depthImages_data;
+    std::unique_ptr<RGB888Pixel[]> s_irImages_data;
 
-    static bool s_bColorFrameOK    = false;
-    static bool s_bDepth_IRFrameOK = false;
-    static uint64_t s_depth_t      = 0;
-    static uint64_t s_color_t      = 0;
-//    ImiImageFrame* imiFrame = new ImiImageFrame[deviceCount];
-//    ImiCameraFrame* pCamFrame = new ImiCameraFrame[deviceCount];
+    std::unique_ptr<RGB888Pixel * []> s_colorImages;
+    std::unique_ptr<RGB888Pixel * []> s_depthImages;
+    std::unique_ptr<RGB888Pixel * []> s_irImages;
 
-    std::vector<ImiImageFrame *> imiFrame(deviceCount);
-    std::vector<ImiCameraFrame *> pCamFrame(deviceCount);
+    int8_t factor = 3; // can avoid signal aliasing ???? I guess.
+    int resolution = g_width * g_height;
+    int frame_length = resolution * factor;
 
-    uint32_t nFrameSize = g_width * g_height;
+    s_colorImages_data = std::make_unique<RGB888Pixel []>(deviceCount * frame_length);
+    s_depthImages_data = std::make_unique<RGB888Pixel []>(deviceCount * frame_length);
+    s_irImages_data    = std::make_unique<RGB888Pixel []>(deviceCount * frame_length);
+
+    s_colorImages = std::make_unique<RGB888Pixel * []>(deviceCount);
+    s_depthImages = std::make_unique<RGB888Pixel * []>(deviceCount);
+    s_irImages    = std::make_unique<RGB888Pixel * []>(deviceCount);
+
+    for (int i = 0; i < deviceCount; ++i) {
+        s_colorImages[i] = &s_colorImages_data[i * frame_length];
+        s_depthImages[i] = &s_depthImages_data[i * frame_length];
+        s_irImages[i]    = &s_irImages_data[i * frame_length];
+    }
+    // --------------------------------------- done ------------------------------------------------------
+
+    bool s_bColorFrameOK    = true; // don't declare it a static variable, or the whole streams will be dropped once some frame is lost.
+    bool s_bDepth_IRFrameOK = true; // don't declare it a static variable, or the whole streams will be dropped once some frame is lost.
+    static uint64_t s_depth_t = 0;
+    static uint64_t s_color_t = 0;
 
 //    std::copy(tasks.begin(), tasks.end(), std::ostream_iterator<std::string>(std::cout, "\n"));
     for (int k = 0; k < deviceCount; ++k) {
-        if (!s_bDepth_IRFrameOK) {
-            // frame read.
-            ImiImageFrame* ptFrame = imiFrame[k];
-            if (0 != imiReadNextFrame(g_streams[k], &ptFrame, 200)) {
-                countDepth++;
-                if (countDepth > 100) {
-                    printf("in 100 times not get Depth Frame, restart stream =  %d\n");
-                    stop();
-                    sleepMs(2000);
-                    start();
-                }
-                return false;
-            }
-
-            if (NULL == ptFrame)
-                return false;
-
-            // point to Depth data buffer
-            uint16_t *pde = (uint16_t *) ptFrame->pData;
-            for (uint32_t i = 0; i < nFrameSize; ++i) {
-                s_depthImages[k][i].r = pde[i] >> 3;
-                s_depthImages[k][i].g = s_depthImages[k][i].r;
-                s_depthImages[k][i].b = s_depthImages[k][i].r;
-            }
-
-            // point to IR data buffer
-//            uint16_t *pIR = (uint16_t *) ptFrame->pData + nFrameSize;
-//            for (uint32_t i = 0; i < nFrameSize; ++i) {
-//                s_irImages[k][i].r = pIR[i] >> 2;
-//                s_irImages[k][i].g = s_irImages[k][i].r;
-//                s_irImages[k][i].b = s_irImages[k][i].r;
-//            }
-            s_depth_t = ptFrame->timeStamp;
-        }
-
-        if(!s_bColorFrameOK)
-        {
-            ImiCameraFrame * pcFrame = pCamFrame[k];
-            if(0 != imiCamReadNextFrame(g_cameraDevice[k], &pcFrame, 200)) {
-                countUVC++;
-                if(countUVC > 100)
-                {
-                    printf("in 100 times not get UVC Frame, restart stream =  %d\n");
-                    stop();
-                    sleepMs(2000);
-                    start();
-                }
-                return false;
-            }
-
-            if(NULL == pcFrame)
-                return false;
-
-            memcpy((void*)&s_colorImages[k], (const void*)pcFrame->pData, pcFrame->size);
-            s_color_t = pcFrame->timeStamp;
-        }
+        s_bDepth_IRFrameOK &= get_frames(g_streams[k], NULL,NULL, s_depthImages[k], s_irImages[k]);
+        // s_depth_t = ptFrame->timeStamp;
+        s_bColorFrameOK &= get_frames(NULL, g_cameraDevice[k], s_colorImages[k], NULL, NULL);
+        // s_color_t = pcFrame->timeStamp;
     }
-    s_bDepth_IRFrameOK = true;
-    s_bColorFrameOK = true;
 
-    if(s_bColorFrameOK && s_bDepth_IRFrameOK)
-    {
-        if(g_bNeedFrameSync)
-        {
+    if(s_bColorFrameOK && s_bDepth_IRFrameOK) {
+        if(g_bNeedFrameSync) {
             int64_t delta = (s_depth_t - s_color_t);
             delta /= 1000; //ms
 
             if(delta < -20)
             {
-                s_bDepth_IRFrameOK = false; //drop Depth_IR frame
+//                s_bDepth_IRFrameOK = false; //drop Depth_IR frame
+                printf("delta < 20 !!!");
                 return true;
             }
             else if(delta > 10)
             {
-                s_bColorFrameOK = false; //drop Color frame
+//                s_bColorFrameOK = false; //drop Color frame
+                printf("delta > 10 !!!");
                 return true;
             }
         }
@@ -361,32 +375,19 @@ static bool needImage(void* pData)
         for (int k = 0; k < deviceCount; ++k) {
             // draw Color
             hint.x = 0;
-
             g_pRender->draw((uint8_t *) s_colorImages[k], g_width * g_height * 3, hint);
-
             hint.x += g_width;
             hint.w = g_width;
             hint.h = g_height;
-
             // draw Depth
             g_pRender->draw((uint8_t *) s_depthImages[k], g_width * g_height * 3, hint);
-
             hint.x += g_width;
             hint.w = g_width;
             hint.h = g_height;
-
             // draw IR
-//            g_pRender->draw((uint8_t *) s_irImages[k], g_width * g_height * 3, hint);
-
-//            std::string task_name = tasks[task_id];
-//            g_pRender->drawString("Task List: ", 1925, 40, 0.2, 0.4, 1);
-//            for (int x = 1940, y = 70, i = 0; i < tasks.size(); ++i, y += 30) {
-//                std::string text = "[" + std::to_string(i) + "] " + tasks[i];
-//                if (i == task_id)
-//                    g_pRender->drawString(text.c_str(), x, y, 1, 1., 0);
-//                else
-//                    g_pRender->drawString(text.c_str(), x, y, 0.2, 0.4, 1);
-//            }
+            g_pRender->draw((uint8_t *) s_irImages[k], g_width * g_height * 3, hint);
+            hint.y += g_height + 10;
+        }
 
 //            if (g_bSave) {
 //                save((uint16_t *) pCamFrame->pData, s_colorImages[k], pCamFrame->size, pCamFrame->width, pCamFrame->height,
@@ -402,29 +403,12 @@ static bool needImage(void* pData)
 //                    n_frames = n_frames_sampling;
 //                }
 //            }
-
-            hint.y += g_height + 10;
-        }
-
+        drawtexts(tasks, task_id);
 //        g_pRender->drawCursorXYZValue(&imiFrame[0]);
         g_pRender->update();
-
-        s_bColorFrameOK = false;
-        s_bDepth_IRFrameOK = false;
     }
-
-    for (int k = 0; k < deviceCount; ++k) {
-//        ImiImageFrame* ptFrame = &imiFrame[k];
-//        ImiCameraFrame * pcFrame = &pCamFrame[k];
-        // call this to free frame
-        imiReleaseFrame(&imiFrame[k]); // might lead to memory leak
-        // call this to free camera frame
-        imiCamReleaseFrame(&pCamFrame[k]); // might lead to memory leak
-    }
-
-//    delete [] s_depthImages;
-//    delete [] s_irImages;
-//    delete [] s_colorImages;
+    else
+        printf("frame loss!");
 
     return true;
 }
@@ -508,15 +492,32 @@ int Exit()
     return 0;
 }
 
+bool parse_cameras(const std::string & args, std::vector<int8_t> & cameras) {
+    for (char const &c: args) {
+        if(isdigit(c)) {
+            int id = c - '0';
+            cameras.push_back(id);
+        }
+        else if (c == ',')
+            continue;
+        else {
+            std::cerr << "Format: 0,1,2,3,4 ..." << std::endl;
+            exit(-1);
+        }
+    }
+
+}
+
 int main(int argc, char** argv)
 {
-    camera_index = atoi(argv[1]);
+//    camera_index = atoi(argv[1]);
+    std::string args = argv[1];
+    parse_cameras(args, cameras);
 
     int ret = start();
     if(ret != 0)
     {
         printf("------ exit ------\n");
-
         getchar();
     }
 
