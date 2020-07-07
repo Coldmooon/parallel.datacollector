@@ -154,18 +154,24 @@ int start()
     }
     printf("Get %d Connected ImiDevice.\n", deviceCount);
 
-    deviceCount = deviceCount > cameras.size()? cameras.size(): deviceCount;
+    if (cameras.size() == 0) {
+        for (int i = 0; i < deviceCount; ++i)
+            cameras.push_back(i);
+    }
+    else
+        deviceCount = deviceCount > cameras.size()? cameras.size(): deviceCount;
 
     //3.imiOpenDevice()
     g_ImiDevice = new ImiDeviceHandle[deviceCount];
     for (int i = 0; i < deviceCount; ++i) {
-        ret = imiOpenDevice(g_DeviceAttr[i].uri, &g_ImiDevice[i], 0);
+        int8_t k = cameras[i];
+        ret = imiOpenDevice(g_DeviceAttr[k].uri, &g_ImiDevice[i], 0);
         if(0 != ret)
         {
-            printf("Open ImiDevice %d Failed! ret = %d\n", i, ret);
+            printf("Open ImiDevice %d Failed! ret = %d\n", k, ret);
             return stop();
         }
-        printf("ImiDevice %d Opened.\n", i);
+        printf("ImiDevice %d Opened.\n", k);
     }
 
     ret = getCamAttrList(&g_pCameraAttr, &deviceCameraCount);
@@ -178,15 +184,15 @@ int start()
 
     // open UVC camera
     g_cameraDevice = new ImiCameraHandle[deviceCount];
-    g_streams = new ImiStreamHandle[deviceCount];
     for (int i = 0; i < deviceCount; ++i) {
-        ret = imiCamOpenURI(g_pCameraAttr[i].uri, &g_cameraDevice[i]);
+        int8_t k = cameras[i];
+        ret = imiCamOpenURI(g_pCameraAttr[k].uri, &g_cameraDevice[i]);
         if(0 != ret)
         {
-            printf("Open UVC Camera %d Failed! ret = %d\n", i, ret);
+            printf("Open UVC Camera %d Failed! ret = %d\n", k, ret);
             return stop();
         }
-        printf("Open UVC Camera %d Success  %s\n", i, g_pCameraAttr[i].uri);
+        printf("Open UVC Camera %d Success  %s\n", i, g_pCameraAttr[k].uri);
     }
 
     ImiCameraFrameMode pMode =   {CAMERA_PIXEL_FORMAT_RGB888, 640,  480,  24};
@@ -198,6 +204,7 @@ int start()
     }
 
     // open stream
+    g_streams = new ImiStreamHandle[deviceCount];
     for (int i = 0; i < deviceCount; ++i) {
         ret = imiCamStartStream(g_cameraDevice[i], &pMode);
         if(0 != ret)
@@ -505,14 +512,14 @@ bool parse_cameras(const std::string & args, std::vector<int8_t> & cameras) {
             exit(-1);
         }
     }
-
 }
 
 int main(int argc, char** argv)
 {
 //    camera_index = atoi(argv[1]);
-    std::string args = argv[1];
-    parse_cameras(args, cameras);
+//    std::string args = argv[1];
+    if (NULL != argv[1])
+        parse_cameras(argv[1], cameras);
 
     int ret = start();
     if(ret != 0)
