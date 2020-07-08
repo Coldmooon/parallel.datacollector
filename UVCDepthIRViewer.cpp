@@ -70,8 +70,7 @@ int n_frames = n_frames_sampling;
 bool g_bSave = false;
 std::vector<std::string> tasks;
 
-void sleepMs (int32_t msecs)
-{
+void sleepMs (int32_t msecs) {
 #ifdef _WIN32
     Sleep (msecs);
 #else
@@ -97,18 +96,15 @@ int stop()
     }
 
     //7.imiCloseStream()
-    for(uint32_t num = 0; num < deviceCount; ++num)
-    {
-        if(NULL != g_streams[num])
-        {
+    for(uint32_t num = 0; num < deviceCount; ++num) {
+        if(NULL != g_streams[num]) {
             imiCloseStream(g_streams[num]);
             g_streams[num] = NULL;
         }
     }
 
     //8.imiCloseDevice()
-    if(NULL != g_ImiDevice)
-    {
+    if(NULL != g_ImiDevice) {
         for (int k = 0; k < deviceCount; ++k) {
             imiCloseDevice(g_ImiDevice[k]);
             g_ImiDevice[k] = NULL;
@@ -117,8 +113,7 @@ int stop()
     }
 
     //9.imiReleaseDeviceList
-    if(NULL != g_DeviceAttr)
-    {
+    if(NULL != g_DeviceAttr) {
         imiReleaseDeviceList(&g_DeviceAttr);
 //        g_DeviceAttr = NULL;
         delete [] g_DeviceAttr;
@@ -135,11 +130,9 @@ int stop()
 }
 
 
-int start()
-{
+int start() {
     int ret = imiInitialize();
-    if(0 != ret)
-    {
+    if(0 != ret) {
         printf("ImiNect Init Failed! ret = %d\n", ret);
         return stop();
     }
@@ -147,8 +140,7 @@ int start()
 
     //2.imiGetDeviceList()
     imiGetDeviceList(&g_DeviceAttr, &deviceCount);
-    if((deviceCount <= 0) || (NULL == g_DeviceAttr))
-    {
+    if((deviceCount <= 0) || (NULL == g_DeviceAttr)) {
         printf("Get No Connected ImiDevice!\n");
         return stop();
     }
@@ -166,8 +158,7 @@ int start()
     for (int i = 0; i < deviceCount; ++i) {
         int8_t k = cameras[i];
         ret = imiOpenDevice(g_DeviceAttr[k].uri, &g_ImiDevice[i], 0);
-        if(0 != ret)
-        {
+        if(0 != ret) {
             printf("Open ImiDevice %d Failed! ret = %d\n", k, ret);
             return stop();
         }
@@ -176,8 +167,7 @@ int start()
 
     ret = getCamAttrList(&g_pCameraAttr, &deviceCameraCount);
     deviceCameraCount = deviceCameraCount > cameras.size()? cameras.size(): deviceCameraCount;
-    if (ret != 0 || NULL == g_pCameraAttr || deviceCount != deviceCameraCount)
-    {
+    if (ret != 0 || NULL == g_pCameraAttr || deviceCount != deviceCameraCount) {
         printf("getCamAttrList Failed! ret = %d\n", ret);
         return stop();
     }
@@ -187,18 +177,16 @@ int start()
     for (int i = 0; i < deviceCount; ++i) {
         int8_t k = cameras[i];
         ret = imiCamOpenURI(g_pCameraAttr[k].uri, &g_cameraDevice[i]);
-        if(0 != ret)
-        {
+        if(0 != ret) {
             printf("Open UVC Camera %d Failed! ret = %d\n", k, ret);
             return stop();
         }
         printf("Open UVC Camera %d Success  %s\n", i, g_pCameraAttr[k].uri);
     }
 
-    ImiCameraFrameMode pMode =   {CAMERA_PIXEL_FORMAT_RGB888, 640,  480,  24};
+    ImiCameraFrameMode pMode = {CAMERA_PIXEL_FORMAT_RGB888, 640,  480,  24};
 
-    if(g_bisPortraitDevice)
-    {
+    if(g_bisPortraitDevice) {
         pMode.resolutionX = 480;
         pMode.resolutionY = 640;
     }
@@ -207,8 +195,7 @@ int start()
     g_streams = new ImiStreamHandle[deviceCount];
     for (int i = 0; i < deviceCount; ++i) {
         ret = imiCamStartStream(g_cameraDevice[i], &pMode);
-        if(0 != ret)
-        {
+        if(0 != ret) {
             printf("Start Camera %d stream Failed! ret = %d\n", i, ret);
             return stop();
         }
@@ -222,8 +209,7 @@ int start()
         //5.imiOpenStream()
         ret = imiOpenStream(g_ImiDevice[i], IMI_DEPTH_IR_FRAME, NULL, NULL, &g_streams[i]);
         std::cout << imiGetLastError() << std::endl;
-        if(0 != ret)
-        {
+        if(0 != ret) {
             printf("Open Depth %d Stream Failed! ret = %d\n", i, ret);
             return stop();
         }
@@ -362,14 +348,12 @@ static bool needImage(void* pData)
             int64_t delta = (s_depth_t - s_color_t);
             delta /= 1000; //ms
 
-            if(delta < -20)
-            {
+            if(delta < -20) {
 //                s_bDepth_IRFrameOK = false; //drop Depth_IR frame
                 printf("delta < 20 !!!");
                 return true;
             }
-            else if(delta > 10)
-            {
+            else if(delta > 10) {
 //                s_bColorFrameOK = false; //drop Color frame
                 printf("delta > 10 !!!");
                 return true;
@@ -427,8 +411,7 @@ void keyboardFun(T key, int32_t x, int32_t y)
     tasks = load_tasks("./config.txt");
     int8_t tmp = task_id;
 
-    switch (key)
-    {
+    switch (key) {
         case GLUT_KEY_UP:
             task_id++;
             break;
