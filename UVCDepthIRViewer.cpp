@@ -25,6 +25,7 @@ All rights reserved.
 #include <iostream>
 #include <GL/freeglut.h>
 #include <memory>
+#include <thread>
 
 // Imi Head File
 #include "ImiNect.h"
@@ -237,6 +238,127 @@ bool drawtexts(std::vector<std::string> tasks, int8_t task_id) {
     return true;
 }
 
+void get_color(ImiCameraHandle g_camera_Device, RGB888Pixel* s_colorImage) {
+    if (NULL != g_camera_Device) {
+        if ( NULL == s_colorImage)
+            std::cerr << "ERROR: no UVC pixel container provided..";
+
+        ImiCameraFrame *pCamFrame = NULL;
+        if (0 != imiCamReadNextFrame(g_camera_Device, &pCamFrame, 100))
+            std::cerr << "ERROR: could not get frame.." << std::endl;
+
+        if (NULL == pCamFrame)
+            std::cerr << "Get frame failed.." << std::endl;
+
+        memcpy((void *) s_colorImage, (const void *) pCamFrame->pData, pCamFrame->size);
+
+        imiCamReleaseFrame(&pCamFrame);
+    }
+    else
+        std::cerr << "Camber Handle is NULL.." << std::endl;
+}
+
+bool get_IR(ImiStreamHandle g_DepthIR_streams, RGB888Pixel * s_IRImage) {
+
+    if (NULL != g_DepthIR_streams) {
+        int framesize = g_width * g_height;
+        if (NULL == s_IRImage)
+            std::cerr << "ERROR: no IR pixel container provided.." << std::endl;
+
+        ImiImageFrame *imiFrame = NULL;
+        if (0 != imiReadNextFrame(g_DepthIR_streams, &imiFrame, 100))
+            std::cerr << "ERROR: could not get IR frame.." << std::endl;
+
+        if (NULL != imiFrame) {
+            uint16_t *pIR = (uint16_t *) imiFrame->pData + framesize;
+            for (uint32_t i = 0; i < framesize; ++i) {
+                s_IRImage[i].r = pIR[i] >> 2;
+                s_IRImage[i].g = s_IRImage[i].r;
+                s_IRImage[i].b = s_IRImage[i].r;
+            }
+        }
+        else
+            std::cerr << "Get IR frame failed.." << std::endl;
+
+        imiReleaseFrame(&imiFrame);
+        return true;
+    }
+    else {
+        std::cerr << "IR stream given..." << std::endl;
+        return false;
+    }
+}
+
+bool get_depth(ImiStreamHandle g_DepthIR_streams, RGB888Pixel* s_depthImage) {
+
+    if (NULL != g_DepthIR_streams) {
+        int framesize = g_width * g_height;
+        if (NULL == s_depthImage)
+            std::cerr << "ERROR: no Depth / IR pixel container provided.." << std::endl;
+
+        ImiImageFrame *imiFrame = NULL;
+        if (0 != imiReadNextFrame(g_DepthIR_streams, &imiFrame, 100))
+            std::cerr << "ERROR: could not get Depth / IR frame.." << std::endl;
+
+        if (NULL != imiFrame) {
+            uint16_t *pde = (uint16_t *) imiFrame->pData;
+            for (uint32_t i = 0; i < framesize; ++i) {
+                s_depthImage[i].r = pde[i] >> 3;
+                s_depthImage[i].g = s_depthImage[i].r;
+                s_depthImage[i].b = s_depthImage[i].r;
+            }
+        }
+        else
+            std::cerr << "Get Depth / IR frame failed.." << std::endl;
+
+        imiReleaseFrame(&imiFrame);
+        return true;
+    }
+    else {
+        std::cerr << "No Depth/IR stream given..." << std::endl;
+        return false;
+    }
+}
+
+bool get_depthIR(ImiStreamHandle g_DepthIR_streams, RGB888Pixel* s_depthImage, RGB888Pixel * s_IRImage) {
+
+    if (NULL != g_DepthIR_streams) {
+        int framesize = g_width * g_height;
+        if (NULL == s_depthImage)
+            std::cerr << "ERROR: no Depth / IR pixel container provided.." << std::endl;
+
+        ImiImageFrame *imiFrame = NULL;
+        if (0 != imiReadNextFrame(g_DepthIR_streams, &imiFrame, 100))
+            std::cerr << "ERROR: could not get Depth / IR frame.." << std::endl;
+
+        if (NULL != imiFrame) {
+            uint16_t *pde = (uint16_t *) imiFrame->pData;
+            for (uint32_t i = 0; i < framesize; ++i) {
+                s_depthImage[i].r = pde[i] >> 3;
+                s_depthImage[i].g = s_depthImage[i].r;
+                s_depthImage[i].b = s_depthImage[i].r;
+            }
+            if (NULL != s_IRImage) {
+                uint16_t *pIR = (uint16_t *) imiFrame->pData + framesize;
+                for (uint32_t i = 0; i < framesize; ++i) {
+                    s_IRImage[i].r = pIR[i] >> 2;
+                    s_IRImage[i].g = s_IRImage[i].r;
+                    s_IRImage[i].b = s_IRImage[i].r;
+                }
+            }
+        }
+        else
+            std::cerr << "Get Depth / IR frame failed.." << std::endl;
+
+        imiReleaseFrame(&imiFrame);
+        return true;
+    }
+    else {
+        std::cerr << "No Depth/IR stream given..." << std::endl;
+        return false;
+    }
+}
+
 bool get_frames(ImiStreamHandle g_DepthIR_streams, ImiCameraHandle g_camera_Device, RGB888Pixel* s_colorImage, RGB888Pixel* s_depthImage, RGB888Pixel* s_IRImage=NULL) {
 
     if ( NULL != g_DepthIR_streams) {
@@ -249,26 +371,27 @@ bool get_frames(ImiStreamHandle g_DepthIR_streams, ImiCameraHandle g_camera_Devi
         if (0 != imiReadNextFrame(g_DepthIR_streams, &imiFrame, 100))
             return false;
 
-        if (NULL == imiFrame)
-            return false;
+        if (NULL != imiFrame) {
+            if (NULL != s_depthImage) {
+                uint16_t *pde = (uint16_t *) imiFrame->pData;
+                for (uint32_t i = 0; i < framesize; ++i) {
+                    s_depthImage[i].r = pde[i] >> 3;
+                    s_depthImage[i].g = s_depthImage[i].r;
+                    s_depthImage[i].b = s_depthImage[i].r;
+                }
+            }
 
-        if (NULL != s_depthImage) {
-            uint16_t *pde = (uint16_t *) imiFrame->pData;
-            for (uint32_t i = 0; i < framesize; ++i) {
-                s_depthImage[i].r = pde[i] >> 3;
-                s_depthImage[i].g = s_depthImage[i].r;
-                s_depthImage[i].b = s_depthImage[i].r;
+            if (NULL != s_IRImage) {
+                uint16_t *pIR = (uint16_t *) imiFrame->pData + framesize;
+                for (uint32_t i = 0; i < framesize; ++i) {
+                    s_IRImage[i].r = pIR[i] >> 2;
+                    s_IRImage[i].g = s_IRImage[i].r;
+                    s_IRImage[i].b = s_IRImage[i].r;
+                }
             }
         }
-
-        if (NULL != s_IRImage) {
-            uint16_t *pIR = (uint16_t *) imiFrame->pData + framesize;
-            for (uint32_t i = 0; i < framesize; ++i) {
-                s_IRImage[i].r = pIR[i] >> 2;
-                s_IRImage[i].g = s_IRImage[i].r;
-                s_IRImage[i].b = s_IRImage[i].r;
-            }
-        }
+        else
+            printf("Get Frame Failed..");
 
         imiReleaseFrame(&imiFrame);
         return true;
@@ -293,6 +416,7 @@ bool get_frames(ImiStreamHandle g_DepthIR_streams, ImiCameraHandle g_camera_Devi
 
     return false;
 }
+
 
 // window callback, called by SampleRender::display()
 static bool needImage(void* pData)
@@ -335,12 +459,23 @@ static bool needImage(void* pData)
     static uint64_t s_depth_t = 0;
     static uint64_t s_color_t = 0;
 
-//    std::copy(tasks.begin(), tasks.end(), std::ostream_iterator<std::string>(std::cout, "\n"));
+    // single thread
+//    for (int k = 0; k < deviceCount; ++k) {
+//        s_bDepth_IRFrameOK &= get_frames(g_streams[k], NULL,NULL, s_depthImages[k], s_irImages[k]);
+//        s_bColorFrameOK &= get_frames(NULL, g_cameraDevice[k], s_colorImages[k], NULL, NULL);
+////        s_bDepth_IRFrameOK &=  get_depthIR(g_streams[k], s_depthImages[k], s_irImages[k]);
+////        get_depth(g_streams[k], s_depthImages[k]);
+////        get_IR(g_streams[k], s_irImages[k]);
+//    }
+
+    // multiple threads
+    std::vector<std::thread> threads;
     for (int k = 0; k < deviceCount; ++k) {
-        s_bDepth_IRFrameOK &= get_frames(g_streams[k], NULL,NULL, s_depthImages[k], s_irImages[k]);
-        // s_depth_t = ptFrame->timeStamp;
-        s_bColorFrameOK &= get_frames(NULL, g_cameraDevice[k], s_colorImages[k], NULL, NULL);
-        // s_color_t = pcFrame->timeStamp;
+        threads.push_back(std::thread(get_color, g_cameraDevice[k], s_colorImages[k]));
+        threads.push_back(std::thread(get_depthIR, g_streams[k], s_depthImages[k], s_irImages[k]));
+    }
+    for (auto &th: threads) {
+        th.join();
     }
 
     if(s_bColorFrameOK && s_bDepth_IRFrameOK) {
@@ -349,12 +484,12 @@ static bool needImage(void* pData)
             delta /= 1000; //ms
 
             if(delta < -20) {
-//                s_bDepth_IRFrameOK = false; //drop Depth_IR frame
+                // s_bDepth_IRFrameOK = false; //drop Depth_IR frame
                 printf("delta < 20 !!!");
                 return true;
             }
             else if(delta > 10) {
-//                s_bColorFrameOK = false; //drop Color frame
+                // s_bColorFrameOK = false; //drop Color frame
                 printf("delta > 10 !!!");
                 return true;
             }
@@ -497,6 +632,10 @@ bool parse_cameras(const std::string & args, std::vector<int8_t> & cameras) {
     }
 }
 
+static bool needImage2(void* pData) {
+    return 1;
+}
+
 int main(int argc, char** argv)
 {
 //    camera_index = atoi(argv[1]);
@@ -517,9 +656,8 @@ int main(int argc, char** argv)
     g_pRender = new SampleRender("UVCDepthIRViewer", g_width * 3 + 300, (g_height + 10) * deviceCount); // window title & size
     g_pRender->init(argc, argv);
     g_pRender->setDataCallback(needImage, NULL);
-//    g_pRender->setKeyCallback(keyboardFun_func);
-    g_pRender->setKeyCallback(keyboardFun<int>);
-    g_pRender->setKeyCallback(keyboardFun<unsigned char>);
+//    g_pRender->setKeyCallback(keyboardFun<int>);
+//    g_pRender->setKeyCallback(keyboardFun<unsigned char>);
     g_pRender->run();
 
     return Exit();
