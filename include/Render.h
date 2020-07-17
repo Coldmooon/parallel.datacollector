@@ -59,12 +59,8 @@ typedef struct _POSITION
 
 
 template<typename T>
-using NeedImageCb = bool (*) (T *, int camera_id);
-//using NeedImageCb = bool (*) (void * pData);
-//typedef bool (*NeedImageCb)(void* pData); // single thread
-//typedef bool (*NeedImageCb)(void* pData, int camera_id); // multi thread
-
-typedef int32_t RenderWindow;
+using NeedImageCb = bool (*) (T *);
+using RenderWindow = int32_t;
 
 template<typename T>
 using keyCallback = void (*) (T key, int32_t x, int32_t y);
@@ -77,7 +73,7 @@ public:
 
 	bool init(int32_t argc, char **argv);
 	void setDataCallback(NeedImageCb<SampleRender> needImage, void* pData);
-	void setDataCallback_multithread(NeedImageCb<SampleRender> needImage, int camera_id);
+	void setDataCallback_multithread(NeedImageCb<SampleRender> needImage);
 	bool run();
 	bool multithread_run();
 
@@ -101,7 +97,6 @@ public:
 	virtual void drawString(const char* str, uint32_t x, uint32_t y, void* font = (void *)0x0002);
 	virtual void drawString(const char* str, uint32_t x, uint32_t y, float red, float green, float blue);
 
-	int m_deviceCount;
 	int m_camera_id;
     int32_t m_glWin;
 

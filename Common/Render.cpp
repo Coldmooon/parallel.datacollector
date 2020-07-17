@@ -89,10 +89,9 @@ void SampleRender::setDataCallback(NeedImageCb<SampleRender> needImage, void* pD
 	m_pUserCookie = pData;
 }
 
-void SampleRender::setDataCallback_multithread(NeedImageCb<SampleRender> needImage, int camera_id)
+void SampleRender::setDataCallback_multithread(NeedImageCb<SampleRender> needImage)
 {
     m_NeedImage = needImage;
-    m_camera_id = camera_id;
 }
 
 bool SampleRender::run()
@@ -157,7 +156,7 @@ void SampleRender::display_cameraID()
 //        for (auto &th: threads) {
 //            th.join();
 //        }
-        m_NeedImage(this, m_camera_id);
+        m_NeedImage(this);
     }
 }
 
