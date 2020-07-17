@@ -57,15 +57,17 @@ typedef struct _POSITION
 	}
 }POSITION;
 
-typedef bool (*NeedImageCb)(void* pData);
+
+template<typename T>
+using NeedImageCb = bool (*) (T *, int camera_id);
+//using NeedImageCb = bool (*) (void * pData);
+//typedef bool (*NeedImageCb)(void* pData); // single thread
+//typedef bool (*NeedImageCb)(void* pData, int camera_id); // multi thread
 
 typedef int32_t RenderWindow;
 
-// for c++11 or later
 template<typename T>
 using keyCallback = void (*) (T key, int32_t x, int32_t y);
-// for elder
-//typedef void (*keyCallback)(unsigned char key, int32_t x, int32_t y);
 
 class SampleRender
 {
@@ -74,8 +76,10 @@ public:
 	virtual ~SampleRender();
 
 	bool init(int32_t argc, char **argv);
-	void setDataCallback(NeedImageCb needImage, void* pData);
+	void setDataCallback(NeedImageCb<SampleRender> needImage, void* pData);
+	void setDataCallback_multithread(NeedImageCb<SampleRender> needImage, int camera_id);
 	bool run();
+	bool multithread_run();
 
 	void initViewPort();
 	void update();
@@ -86,9 +90,6 @@ public:
 	virtual void draw(RenderWindow win, uint8_t* pRgbBuffer, uint32_t size, uint32_t width, uint32_t height, ImiImageFrame** pFrame=NULL);
 
 //	virtual void setKeyCallback(keyCallback keyhandle) {m_keyboard = keyhandle;};
-
-//    template<typename T>
-//	virtual void setKeyCallback(keyCallback<T> keyhandle) {m_keyboard = keyhandle;};
 	virtual void setKeyCallback(keyCallback<unsigned char> keyhandle) {m_keyboard = keyhandle;};
 	virtual void setKeyCallback(keyCallback<int> keyhandle) {m_funckeyboard = keyhandle;};
 //	virtual void setFuncKeyCallback(FunckeyCallback keyhandle) {m_funckeyboard = keyhandle;};
@@ -99,11 +100,16 @@ public:
 	virtual void drawCursorXYZValue(ImiImageFrame** pFrame);
 	virtual void drawString(const char* str, uint32_t x, uint32_t y, void* font = (void *)0x0002);
 	virtual void drawString(const char* str, uint32_t x, uint32_t y, float red, float green, float blue);
+
+	int m_deviceCount;
+	int m_camera_id;
+    int32_t m_glWin;
+
 protected:
 	virtual void display();
+	virtual void display_cameraID();
 	virtual bool initOpenGL(int32_t argc, char **argv);
 
-//    template<typename T>
 	virtual void onKey(unsigned char key, int32_t x, int32_t y);
     virtual void onFuncKey(int key, int32_t x, int32_t y);
 
@@ -113,6 +119,7 @@ private:
 	SampleRender& operator=(SampleRender&);
 
 	static void glutIdle();
+	static void glutIdle_cameraID();
 	static void glutDisplay();
 	static void glutMouse(int button, int state, int x, int y);
 	static void glutXYMouse(int x, int y);
@@ -131,21 +138,19 @@ private:
 
 	RGB888Pixel*	m_pTexMap;
 
-	NeedImageCb     m_NeedImage;
+	NeedImageCb<SampleRender>     m_NeedImage;
 	void*			m_pUserCookie;
-	
+
 	WinHint 		m_hint;
 
 	keyCallback<unsigned char> m_keyboard;
 	keyCallback<int> m_funckeyboard;
 //    FunckeyCallback m_funckeyboard;
-	uint32_t 		m_glWin;
-	
+
 	static POSITION	m_CursorPos;
 
 	int m_nWindowWidth;
 	int m_nWindowHeight;
 };
-
 
 #endif 

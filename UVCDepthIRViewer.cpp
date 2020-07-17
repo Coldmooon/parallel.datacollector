@@ -34,12 +34,14 @@ All rights reserved.
 
 // UI
 #include "Render.h"
+#include <X11/Xlib.h>
 
 // VCLab Utils
 #include "VCLab/VCLab_utils.h"
 
 // window handle
 SampleRender* g_pRender = NULL;
+std::vector<SampleRender *> g_pRenders;
 
 // device attributes
 ImiDeviceAttribute* g_DeviceAttr = NULL; // Depth + IR
@@ -131,7 +133,7 @@ int stop()
 }
 
 
-int start() {
+bool devices_init() {
     int ret = imiInitialize();
     if(0 != ret) {
         printf("ImiNect Init Failed! ret = %d\n", ret);
@@ -221,10 +223,10 @@ int start() {
             printf("Camera [%d] imiCamSetFramesSync = %d\n", i, ret);
         }
     }
-    return 0;
+    return true;
 }
 
-bool drawtexts(std::vector<std::string> tasks, int8_t task_id) {
+bool drawtexts(SampleRender* g_pRender, std::vector<std::string> tasks, int8_t task_id) {
     std::string task_name = tasks[task_id];
     g_pRender->drawString("Task List: ", 1925, 40, 0.2, 0.4, 1);
     for (int x = 1940, y = 70, i = 0; i < tasks.size(); ++i, y += 30) {
@@ -416,132 +418,8 @@ bool get_frames(ImiStreamHandle g_DepthIR_streams, ImiCameraHandle g_camera_Devi
     return false;
 }
 
-// window callback
-static bool needImage(void* pData)
+static bool receiving_rendering_single_a200(SampleRender* g_pRender, int camera_idx)
 {
-    // dynamic 2-D array:
-    // method 1： define a 2-D array at runtime by 'new' method. Note: do not delete them in this function if declaring them static varables.
-    // static RGB888Pixel (* s_depthImages)[res_width * res_height] = new RGB888Pixel [deviceCount][g_width * g_height];
-    // static RGB888Pixel (* s_colorImages)[res_width * res_height] = new RGB888Pixel [deviceCount][g_width * g_height];
-    // static RGB888Pixel (* s_irImages)[res_width * res_height] = new RGB888Pixel [deviceCount][g_width * g_height];
-
-    // method 2： define a 2-D array at runtime using smart pointer, which is a little unstable.
-    std::unique_ptr<RGB888Pixel[]> s_colorImages_data;
-    std::unique_ptr<RGB888Pixel[]> s_depthImages_data;
-    std::unique_ptr<RGB888Pixel[]> s_irImages_data;
-
-    std::unique_ptr<RGB888Pixel * []> s_colorImages;
-    std::unique_ptr<RGB888Pixel * []> s_depthImages;
-    std::unique_ptr<RGB888Pixel * []> s_irImages;
-
-    int8_t factor = 3; // This can somehow avoid signal aliasing among different camera streams.
-    int resolution = g_width * g_height;
-    int frame_length = resolution * factor;
-
-    s_colorImages_data = std::make_unique<RGB888Pixel []>(deviceCount * frame_length);
-    s_depthImages_data = std::make_unique<RGB888Pixel []>(deviceCount * frame_length);
-    s_irImages_data    = std::make_unique<RGB888Pixel []>(deviceCount * frame_length);
-
-    s_colorImages = std::make_unique<RGB888Pixel * []>(deviceCount);
-    s_depthImages = std::make_unique<RGB888Pixel * []>(deviceCount);
-    s_irImages    = std::make_unique<RGB888Pixel * []>(deviceCount);
-
-    for (int i = 0; i < deviceCount; ++i) {
-        s_colorImages[i] = &s_colorImages_data[i * frame_length];
-        s_depthImages[i] = &s_depthImages_data[i * frame_length];
-        s_irImages[i]    = &s_irImages_data[i * frame_length];
-    }
-    // --------------------------------------- done ------------------------------------------------------
-
-    bool s_bColorFrameOK    = true; // don't declare it a static variable, or the subsequent streams will be dropped once some frame is lost.
-    bool s_bDepth_IRFrameOK = true; // don't declare it a static variable, or the subsequent streams will be dropped once some frame is lost.
-    static uint64_t s_depth_t = 0;
-    static uint64_t s_color_t = 0;
-
-    // single thread
-//    for (int k = 0; k < deviceCount; ++k) {
-//        s_bDepth_IRFrameOK &= get_frames(g_streams[k], NULL,NULL, s_depthImages[k], s_irImages[k]);
-//        s_bColorFrameOK &= get_frames(NULL, g_cameraDevice[k], s_colorImages[k], NULL, NULL);
-////        s_bDepth_IRFrameOK &=  get_depthIR(g_streams[k], s_depthImages[k], s_irImages[k]);
-////        get_depth(g_streams[k], s_depthImages[k]);
-////        get_IR(g_streams[k], s_irImages[k]);
-//    }
-
-    // multiple threads
-    std::vector<std::thread> threads;
-    for (int k = 0; k < deviceCount; ++k) {
-        threads.push_back(std::thread(get_color, g_cameraDevice[k], s_colorImages[k]));
-        threads.push_back(std::thread(get_depthIR, g_streams[k], s_depthImages[k], s_irImages[k]));
-    }
-    for (auto &th: threads) {
-        th.join();
-    }
-
-    if(s_bColorFrameOK && s_bDepth_IRFrameOK) {
-        if(g_bNeedFrameSync) {
-            int64_t delta = (s_depth_t - s_color_t);
-            delta /= 1000; //ms
-
-            if(delta < -20) {
-                // s_bDepth_IRFrameOK = false; //drop Depth_IR frame
-                printf("delta < 20 !!!");
-                return true;
-            }
-            else if(delta > 10) {
-                // s_bColorFrameOK = false; //drop Color frame
-                printf("delta > 10 !!!");
-                return true;
-            }
-        }
-
-        g_pRender->initViewPort();
-        WindowHint hint(0, 0, g_width, g_height);
-
-        for (int k = 0; k < deviceCount; ++k) {
-            // draw Color
-            hint.x = 0;
-            g_pRender->draw((uint8_t *) s_colorImages[k], g_width * g_height * 3, hint);
-            hint.x += g_width;
-            hint.w = g_width;
-            hint.h = g_height;
-            // draw Depth
-            g_pRender->draw((uint8_t *) s_depthImages[k], g_width * g_height * 3, hint);
-            hint.x += g_width;
-            hint.w = g_width;
-            hint.h = g_height;
-            // draw IR
-            g_pRender->draw((uint8_t *) s_irImages[k], g_width * g_height * 3, hint);
-            hint.y += g_height + 10;
-        }
-
-//            if (g_bSave) {
-//                save((uint16_t *) pCamFrame->pData, s_colorImages[k], pCamFrame->size, pCamFrame->width, pCamFrame->height,
-//                     task_name + "_UVC_frame" + "_camera[" + std::to_string(k) + "]" + std::to_string(n_frames));
-//                save((uint16_t *) imiFrame->pData, s_depthImages[k], imiFrame->size, imiFrame->width, imiFrame->height,
-//                     task_name + "_Depth_frame" + "_camera[" + std::to_string(k) + "]" + std::to_string(n_frames));
-//                save((uint16_t *) imiFrame->pData + nFrameSize, s_irImages[k], imiFrame->size, imiFrame->width,
-//                     imiFrame->height, task_name + "_IR_frame" + "_camera[" + std::to_string(k) + "]" + std::to_string(n_frames));
-//
-//                n_frames -= 1;
-//                if (n_frames == 0) {
-//                    g_bSave = false;
-//                    n_frames = n_frames_sampling;
-//                }
-//            }
-        drawtexts(tasks, task_id);
-//        g_pRender->drawCursorXYZValue(&imiFrame[0]);
-        g_pRender->update();
-    }
-    else
-        printf("frame loss!");
-
-    return true;
-}
-
-static bool multithreading_receiving_rendering_a200(void* pData, int camera_id)
-{
-    int deviceCount = 1; // each thread uses only one camera
-
     // method 1： define a 2-D array at runtime by 'new' method. Note: do not delete them in this function if declare them static varables.
     // static RGB888Pixel (* s_depthImages)[res_width * res_height] = new RGB888Pixel [deviceCount][g_width * g_height];
     // static RGB888Pixel (* s_colorImages)[res_width * res_height] = new RGB888Pixel [deviceCount][g_width * g_height];
@@ -556,19 +434,20 @@ static bool multithreading_receiving_rendering_a200(void* pData, int camera_id)
     std::unique_ptr<RGB888Pixel * []> s_depthImages;
     std::unique_ptr<RGB888Pixel * []> s_irImages;
 
+    int8_t num_device = 1; // for temp test
     int8_t factor = 3; // can avoid signal aliasing ???? I guess.
     int resolution = g_width * g_height;
     int frame_length = resolution * factor;
 
-    s_colorImages_data = std::make_unique<RGB888Pixel []>(deviceCount * frame_length);
-    s_depthImages_data = std::make_unique<RGB888Pixel []>(deviceCount * frame_length);
-    s_irImages_data    = std::make_unique<RGB888Pixel []>(deviceCount * frame_length);
+    s_colorImages_data = std::make_unique<RGB888Pixel []>(num_device * frame_length);
+    s_depthImages_data = std::make_unique<RGB888Pixel []>(num_device * frame_length);
+    s_irImages_data    = std::make_unique<RGB888Pixel []>(num_device * frame_length);
 
-    s_colorImages = std::make_unique<RGB888Pixel * []>(deviceCount);
-    s_depthImages = std::make_unique<RGB888Pixel * []>(deviceCount);
-    s_irImages    = std::make_unique<RGB888Pixel * []>(deviceCount);
+    s_colorImages = std::make_unique<RGB888Pixel * []>(num_device);
+    s_depthImages = std::make_unique<RGB888Pixel * []>(num_device);
+    s_irImages    = std::make_unique<RGB888Pixel * []>(num_device);
 
-    for (int i = 0; i < deviceCount; ++i) {
+    for (int i = 0; i < num_device; ++i) {
         s_colorImages[i] = &s_colorImages_data[i * frame_length];
         s_depthImages[i] = &s_depthImages_data[i * frame_length];
         s_irImages[i]    = &s_irImages_data[i * frame_length];
@@ -580,61 +459,28 @@ static bool multithreading_receiving_rendering_a200(void* pData, int camera_id)
     static uint64_t s_depth_t = 0;
     static uint64_t s_color_t = 0;
 
-    // single thread
-//    for (int k = 0; k < deviceCount; ++k) {
-//        s_bDepth_IRFrameOK &= get_frames(g_streams[camera_id], NULL,NULL, s_depthImages[camera_id], s_irImages[camera_id]);
-//        s_bColorFrameOK &= get_frames(NULL, g_cameraDevice[camera_id], s_colorImages[camera_id], NULL, NULL);
-//        s_bDepth_IRFrameOK &=  get_depthIR(g_streams[k], s_depthImages[k], s_irImages[k]);
-//        get_depth(g_streams[k], s_depthImages[k]);
-//        get_IR(g_streams[k], s_irImages[k]);
-//    }
-
-    // multiple threads
-    std::vector<std::thread> threads;
-    for (int k = 0; k < deviceCount; ++k) {
-        threads.push_back(std::thread(get_color, g_cameraDevice[k], s_colorImages[k]));
-        threads.push_back(std::thread(get_depthIR, g_streams[k], s_depthImages[k], s_irImages[k]));
-    }
-    for (auto &th: threads) {
-        th.join();
-    }
+    printf("get frames from camera ID: %d \n", camera_idx);
+    s_bDepth_IRFrameOK &= get_frames(g_streams[camera_idx], NULL,NULL, s_depthImages[0], s_irImages[0]);
+    s_bColorFrameOK &= get_frames(NULL, g_cameraDevice[camera_idx], s_colorImages[0], NULL, NULL);
 
     if(s_bColorFrameOK && s_bDepth_IRFrameOK) {
-        if(g_bNeedFrameSync) {
-            int64_t delta = (s_depth_t - s_color_t);
-            delta /= 1000; //ms
 
-            if(delta < -20) {
-                // s_bDepth_IRFrameOK = false; //drop Depth_IR frame
-                printf("delta < 20 !!!");
-                return true;
-            }
-            else if(delta > 10) {
-                // s_bColorFrameOK = false; //drop Color frame
-                printf("delta > 10 !!!");
-                return true;
-            }
-        }
+        WindowHint hint(0, 0, g_width, g_height);
 
-        g_pRender->initViewPort(); // Not thread safe. rendering and window init should be in the same thread.
-        WindowHint hint(0, camera_id * (g_height + 10), g_width, g_height);
-
-        for (int k = 0; k < deviceCount; ++k) {
-            // draw Color
-            hint.x = 0;
-            g_pRender->draw((uint8_t *) s_colorImages[k], g_width * g_height * 3, hint);
-            hint.x += g_width;
-            hint.w = g_width;
-            hint.h = g_height;
-            // draw Depth
-            g_pRender->draw((uint8_t *) s_depthImages[k], g_width * g_height * 3, hint);
-            hint.x += g_width;
-            hint.w = g_width;
-            hint.h = g_height;
-            // draw IR
-            g_pRender->draw((uint8_t *) s_irImages[k], g_width * g_height * 3, hint);
-            hint.y += g_height + 10;
-        }
+        // draw Color
+        hint.x = 0;
+        hint.y += camera_idx * g_height + 10;
+        g_pRender->draw((uint8_t *) s_colorImages[0], g_width * g_height * 3, hint);
+        hint.x += g_width;
+        hint.w = g_width;
+        hint.h = g_height;
+        // draw Depth
+        g_pRender->draw((uint8_t *) s_depthImages[0], g_width * g_height * 3, hint);
+        hint.x += g_width;
+        hint.w = g_width;
+        hint.h = g_height;
+        // draw IR
+        g_pRender->draw((uint8_t *) s_irImages[0], g_width * g_height * 3, hint);
 
 //            if (g_bSave) {
 //                save((uint16_t *) pCamFrame->pData, s_colorImages[k], pCamFrame->size, pCamFrame->width, pCamFrame->height,
@@ -652,7 +498,7 @@ static bool multithreading_receiving_rendering_a200(void* pData, int camera_id)
 //            }
 //        drawtexts(tasks, task_id);
 //        g_pRender->drawCursorXYZValue(&imiFrame[0]);
-        g_pRender->update();
+//        g_pRender->update();
     }
     else
         printf("frame loss!");
@@ -660,7 +506,6 @@ static bool multithreading_receiving_rendering_a200(void* pData, int camera_id)
     return true;
 }
 
-// keyboard event callback to save frames
 template<typename T>
 void keyboardFun(T key, int32_t x, int32_t y)
 {
@@ -702,31 +547,6 @@ void keyboardFun(T key, int32_t x, int32_t y)
     printf("Current task ID %d: %s \n", task_id, tasks[task_id].c_str());
 }
 
-// keyboard event callback to save frames
-//void keyboardFun_func(int key, int32_t x, int32_t y) {
-//    tasks = load_tasks("./config.txt");
-//    int8_t tmp = task_id;
-//    switch (key)
-//    {
-//        case GLUT_KEY_UP:
-//            task_id++;
-//            break;
-//        case GLUT_KEY_DOWN:
-//            task_id--;
-//            break;
-//        case GLUT_KEY_LEFT:
-//            break;
-//        case GLUT_KEY_RIGHT:
-//            break;
-//    }
-//
-//    if (task_id >= tasks.size()) {
-//        printf("ERROR: Please choose the task ID from %d to %d \n", 0, tasks.size() - 1);
-//        task_id = tmp;
-//    }
-//    printf("Current task ID %d: %s \n", task_id, tasks[task_id].c_str());
-//}
-
 int Exit()
 {
     stop();
@@ -753,37 +573,62 @@ bool parse_cameras(const std::string & args, std::vector<int8_t> & cameras) {
     }
 }
 
-static bool rendertest(void* pData, int camera_id) {
+static bool assign_tasks(SampleRender* g_pRender, int camera_id) {
 
-    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+    g_pRender->initViewPort(); // Not thread safe. rendering and window init should be in the same thread.
 
-    glBegin(GL_TRIANGLES);
-    glVertex3f(-0.5,-0.5,0.0);
-    glVertex3f(0.5,0.0,0.0);
-    glVertex3f(0.0,0.5,0.0);
-    glEnd();
+    // multiple thread
+//    std::vector<std::thread> workers;
+//    for (int k = 0; k < deviceCount; ++k) {
+//        workers.push_back(std::thread(receiving_rendering_single_a200, g_pRender, k));
+//    }
+//    for (auto &worker: workers) {
+//        worker.join();
+//    }
 
-    glutSwapBuffers();
+    // single thread
+    for (int k = 0; k < deviceCount; ++k) {
+        receiving_rendering_single_a200(g_pRender, k);
+    }
 
-    return 0;
+    g_pRender->update();
 }
+
+void register_tasks(int argc, char** argv) {
+
+    g_pRender = new SampleRender("11", g_width * 3 + 300, (g_height + 10) * deviceCount);
+    g_pRender->m_deviceCount = 1;
+    g_pRender->m_camera_id = 0;
+
+    g_pRender->init(argc, argv); // init and create a window
+
+    g_pRender->setDataCallback_multithread(assign_tasks, 0);
+
+    g_pRender->setKeyCallback(keyboardFun<unsigned char>); // normal keys
+    g_pRender->setKeyCallback(keyboardFun<int>); // functional keys
+}
+
+void idle () {
+    for (int i = 0; i < g_pRenders.size(); ++i ) {
+        glutSetWindow(g_pRenders[i]->m_glWin);
+        glutPostRedisplay();
+    }
+    glutSetWindow(g_pRender->m_glWin);
+    glutPostRedisplay();
+};
 
 int main(int argc, char** argv)
 {
     if (NULL != argv[1])
         parse_cameras(argv[1], cameras);
 
-    int ret = start();
-    if(ret != 0)
-    {
+    if(!devices_init()) {
         printf("------ exit ------\n");
         getchar();
     }
-    if (deviceCount == 0) {std::cerr << "Error Counting devices." << std::endl; exit(-1);}
 
+    if (deviceCount == 0) {std::cerr << "Error Counting devices." << std::endl; exit(-1);}
     tasks = load_tasks("./config.txt");
-    g_pRender = new SampleRender("UVCDepthIRViewer", g_width * 3 + 300, (g_height + 10) * deviceCount); // window title & size
-    g_pRender->deviceCount = deviceCount;
 
     // Glut pipline:
     // 1. initialize the window properties --> 2. create the window --> 3. register the callback function when an event, e.g., a mouse move, occurs.
@@ -791,18 +636,12 @@ int main(int argc, char** argv)
     // For each event type, GLUT provides a specific function to register the call back function.
     // Registering a callback function means to tell GLUT that it should use the function, e.g., needImage(), we just wrote/created for the rendering.
     // GLUT will call the function you choose whenever rendering is required.
+    XInitThreads();
+    glutInit(&argc, argv);
 
-    g_pRender->init(argc, argv); // init and create a window
-    g_pRender->setDataCallback(needImage, NULL); // single thread
-//    g_pRender->setDataCallback(multithreading_receiving_rendering_a200, NULL);
+    register_tasks(argc, argv);
 
-    // process keyboard events
-    g_pRender->setKeyCallback(keyboardFun<unsigned char>); // normal keys
-    g_pRender->setKeyCallback(keyboardFun<int>); // functional keys
-
-    // final loop
-//    g_pRender->multithread_run(); // doesn't work
-    g_pRender->run();
-
+    glutIdleFunc(idle);
+    glutMainLoop();
     return Exit();
 }

@@ -19,6 +19,9 @@
 #include <GL/freeglut.h>
 #include <stdio.h>
 #include <string.h>
+#include <vector>
+#include <thread>
+#include <iostream>
 
 #include "Render.h"
 
@@ -80,10 +83,16 @@ bool SampleRender::init(int argc, char **argv)
 	return initOpenGL(argc, argv);
 }
 
-void SampleRender::setDataCallback(NeedImageCb needImage, void* pData)
+void SampleRender::setDataCallback(NeedImageCb<SampleRender> needImage, void* pData)
 {
 	m_NeedImage = needImage;
 	m_pUserCookie = pData;
+}
+
+void SampleRender::setDataCallback_multithread(NeedImageCb<SampleRender> needImage, int camera_id)
+{
+    m_NeedImage = needImage;
+    m_camera_id = camera_id;
 }
 
 bool SampleRender::run()
@@ -97,6 +106,20 @@ bool SampleRender::run()
 	glutMainLoop();
 
 	return true;
+}
+
+bool SampleRender::multithread_run()
+{
+    if(m_NeedImage)
+    {
+        std::cout << "using SampleRender pointer " << this << "to assign camera ID " << m_camera_id << " to glutIdleFunc." << std::endl;
+        glutIdleFunc(glutIdle_cameraID);
+    }
+
+//    glutSetOption(GLUT_ACTION_ON_WINDOW_CLOSE, GLUT_ACTION_CONTINUE_EXECUTION);
+//    glutMainLoop();
+
+    return true;
 }
 
 void SampleRender::initViewPort()
@@ -119,17 +142,33 @@ void SampleRender::display()
 {
 	if(NULL != m_NeedImage)
 	{
-		m_NeedImage(m_pUserCookie);
+//		m_NeedImage(m_pUserCookie);
 	}
+}
+
+void SampleRender::display_cameraID()
+{
+    if(NULL != m_NeedImage)
+    {
+//        std::vector<std::thread> threads;
+//        for (int k = 0; k < deviceCount; ++k) {
+//            threads.push_back(std::thread(m_NeedImage, m_pUserCookie, k));
+//        }
+//        for (auto &th: threads) {
+//            th.join();
+//        }
+        m_NeedImage(this, m_camera_id);
+    }
 }
 
 bool SampleRender::initOpenGL(int32_t argc, char **argv)
 {
-	glutInit(&argc, argv);
+//	glutInit(&argc, argv);
 	glutInitDisplayMode(GLUT_RGB | GLUT_DOUBLE | GLUT_DEPTH | GLUT_MULTISAMPLE);
 	glutInitWindowSize(m_nTexMapX, m_nTexMapY);
 	m_glWin = glutCreateWindow (m_strRenderName.c_str());
-	glDisable(GL_DEPTH_TEST);
+    glutSetWindow(m_glWin);
+    glDisable(GL_DEPTH_TEST);
 	glEnable(GL_TEXTURE_2D);
 
 	glEnableClientState(GL_VERTEX_ARRAY);
@@ -557,9 +596,14 @@ void SampleRender::glutIdle()
 	SampleRender::g_pSampleRender->display();
 }
 
+void SampleRender::glutIdle_cameraID()
+{
+    SampleRender::g_pSampleRender->display_cameraID();
+}
+
 void SampleRender::glutDisplay()
 {
-	//SampleRender::ms_self->display();
+    SampleRender::g_pSampleRender->display_cameraID();
 }
 
 void SampleRender::glutMouse(int button, int state, int x, int y)
