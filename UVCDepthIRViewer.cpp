@@ -418,7 +418,7 @@ bool get_frames(ImiStreamHandle g_DepthIR_streams, ImiCameraHandle g_camera_Devi
     return false;
 }
 
-static bool receiving_rendering_single_a200(SampleRender* g_pRender, int camera_idx)
+static bool receiving_rendering_single_a200(int camera_idx)
 {
     // method 1： define a 2-D array at runtime by 'new' method. Note: do not delete them in this function if declare them static varables.
     // static RGB888Pixel (* s_depthImages)[res_width * res_height] = new RGB888Pixel [deviceCount][g_width * g_height];
@@ -459,9 +459,10 @@ static bool receiving_rendering_single_a200(SampleRender* g_pRender, int camera_
     static uint64_t s_depth_t = 0;
     static uint64_t s_color_t = 0;
 
-    printf("get frames from camera ID: %d \n", camera_idx);
     s_bDepth_IRFrameOK &= get_frames(g_streams[camera_idx], NULL,NULL, s_depthImages[0], s_irImages[0]);
     s_bColorFrameOK &= get_frames(NULL, g_cameraDevice[camera_idx], s_colorImages[0], NULL, NULL);
+
+    SampleRender* g_pRender = g_pRenders[camera_idx];
 
     if(s_bColorFrameOK && s_bDepth_IRFrameOK) {
 
@@ -469,7 +470,6 @@ static bool receiving_rendering_single_a200(SampleRender* g_pRender, int camera_
 
         // draw Color
         hint.x = 0;
-        hint.y += camera_idx * g_height + 10;
         g_pRender->draw((uint8_t *) s_colorImages[0], g_width * g_height * 3, hint);
         hint.x += g_width;
         hint.w = g_width;
@@ -496,7 +496,7 @@ static bool receiving_rendering_single_a200(SampleRender* g_pRender, int camera_
 //                    n_frames = n_frames_sampling;
 //                }
 //            }
-//        drawtexts(tasks, task_id);
+        drawtexts(g_pRender, tasks, task_id);
 //        g_pRender->drawCursorXYZValue(&imiFrame[0]);
 //        g_pRender->update();
     }
@@ -506,46 +506,6 @@ static bool receiving_rendering_single_a200(SampleRender* g_pRender, int camera_
     return true;
 }
 
-template<typename T>
-void keyboardFun(T key, int32_t x, int32_t y)
-{
-    tasks = load_tasks("./config.txt");
-    int8_t tmp = task_id;
-
-    switch (key) {
-        case GLUT_KEY_UP:
-            task_id++;
-            break;
-        case GLUT_KEY_DOWN:
-            task_id--;
-            break;
-        case GLUT_KEY_LEFT:
-            break;
-        case GLUT_KEY_RIGHT:
-            break;
-        case 's':
-            g_bSave = true;
-            break;
-        default:
-            printf("\n");
-            break;
-    }
-
-    if (key >= 48 && key <= 57) {
-        task_id = key - '0';
-        if (task_id < 0 || task_id >= tasks.size()) {
-            printf("ERROR: Please choose the task ID from %d to %d \n", 0, tasks.size() - 1);
-            task_id = tmp;
-        }
-        printf("Current task ID %d: %s \n", task_id, tasks[task_id].c_str());
-    }
-
-    if (task_id >= tasks.size()) {
-        printf("ERROR: Please choose the task ID from %d to %d \n", 0, tasks.size() - 1);
-        task_id = tmp;
-    }
-    printf("Current task ID %d: %s \n", task_id, tasks[task_id].c_str());
-}
 
 int Exit()
 {
@@ -556,6 +516,47 @@ int Exit()
     getchar();
 
     return 0;
+}
+
+template<typename T>
+void keyboardFun(T key, int32_t x, int32_t y)
+{
+    tasks = load_tasks("./config.txt");
+    int8_t tmp = task_id;
+    bool checknumber = false;
+
+    switch (key) {
+        case GLUT_KEY_UP:
+            task_id++;
+            if (task_id >= tasks.size()) task_id = 0;
+            break;
+        case GLUT_KEY_DOWN:
+            task_id--;
+            if (task_id < 0) task_id = tasks.size() - 1;
+            break;
+        case GLUT_KEY_LEFT:
+            break;
+        case GLUT_KEY_RIGHT:
+            break;
+        case 's':
+            g_bSave = true;
+            break;
+        case 'q':
+            Exit();
+            break;
+        default:
+            checknumber = true;
+            break;
+    }
+
+    if (checknumber && key >= 48 && key <= 57) {
+        task_id = key - '0';
+        if (task_id < 0 || task_id >= tasks.size()) {
+            printf("ERROR: Please choose the task ID from %d to %d \n", 0, tasks.size() - 1);
+            task_id = tmp;
+        }
+    }
+    printf("Current task ID %d: %s \n", task_id, tasks[task_id].c_str());
 }
 
 bool parse_cameras(const std::string & args, std::vector<int8_t> & cameras) {
@@ -573,9 +574,7 @@ bool parse_cameras(const std::string & args, std::vector<int8_t> & cameras) {
     }
 }
 
-static bool assign_tasks(SampleRender* g_pRender, int camera_id) {
-
-    g_pRender->initViewPort(); // Not thread safe. rendering and window init should be in the same thread.
+static bool assign_tasks(SampleRender* g_pRender) {
 
     // multiple thread
 //    std::vector<std::thread> workers;
@@ -587,34 +586,45 @@ static bool assign_tasks(SampleRender* g_pRender, int camera_id) {
 //    }
 
     // single thread
-    for (int k = 0; k < deviceCount; ++k) {
-        receiving_rendering_single_a200(g_pRender, k);
-    }
+    int win = glutGetWindow();
+    if (win - 1 < 0) std::cerr << "Got negative window ID." << std::endl;
 
-    g_pRender->update();
+    receiving_rendering_single_a200(win - 1);
+
+    glutSwapBuffers();
+    glutPostRedisplay();
+    g_pRender->initViewPort();
 }
 
 void register_tasks(int argc, char** argv) {
+    for (int i = 0; i < deviceCount; ++i){
+        SampleRender * pRender = new SampleRender(std::to_string(i).c_str(), g_width * 3 + 300, g_height + 10);
+        pRender->m_camera_id = cameras[i];
 
-    g_pRender = new SampleRender("11", g_width * 3 + 300, (g_height + 10) * deviceCount);
-    g_pRender->m_deviceCount = 1;
-    g_pRender->m_camera_id = 0;
+        pRender->init(argc, argv); // init and create a window
 
-    g_pRender->init(argc, argv); // init and create a window
+        pRender->setDataCallback_multithread(assign_tasks);
 
-    g_pRender->setDataCallback_multithread(assign_tasks, 0);
-
-    g_pRender->setKeyCallback(keyboardFun<unsigned char>); // normal keys
-    g_pRender->setKeyCallback(keyboardFun<int>); // functional keys
+        pRender->setKeyCallback(keyboardFun<unsigned char>); // normal and functional keys
+        g_pRenders.push_back(pRender);
+    }
 }
 
 void idle () {
     for (int i = 0; i < g_pRenders.size(); ++i ) {
         glutSetWindow(g_pRenders[i]->m_glWin);
         glutPostRedisplay();
+        g_pRenders[i]->initViewPort();
     }
-    glutSetWindow(g_pRender->m_glWin);
-    glutPostRedisplay();
+
+//    std::vector<std::thread> workers;
+//    for (int k = 0; k < deviceCount; ++k) {
+//        workers.push_back(std::thread(assign_tasks, g_pRenders[k]));
+//    }
+//    for (auto &worker: workers) {
+//        worker.join();
+//    }
+
 };
 
 int main(int argc, char** argv)
@@ -636,12 +646,13 @@ int main(int argc, char** argv)
     // For each event type, GLUT provides a specific function to register the call back function.
     // Registering a callback function means to tell GLUT that it should use the function, e.g., needImage(), we just wrote/created for the rendering.
     // GLUT will call the function you choose whenever rendering is required.
+    // Note: GLUT functions, as C functions, can not invoke a callback with instance specific information. So avoid registering memeber function as callback.
     XInitThreads();
     glutInit(&argc, argv);
 
     register_tasks(argc, argv);
 
-    glutIdleFunc(idle);
+//    glutIdleFunc(idle);
     glutMainLoop();
     return Exit();
 }

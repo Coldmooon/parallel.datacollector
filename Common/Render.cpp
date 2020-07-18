@@ -21,7 +21,6 @@
 #include <string.h>
 #include <vector>
 #include <thread>
-#include <iostream>
 
 #include "Render.h"
 
@@ -42,11 +41,6 @@ template <typename T>
 void SampleRender::glutKeyboard(T key, int x, int y)
 {
 	g_pSampleRender->onKey(key, x, y);
-}
-
-void SampleRender::glutFuncKeyboard(int key, int x, int y)
-{
-    g_pSampleRender->onFuncKey(key, x, y);
 }
 
 SampleRender::SampleRender(const char* pRenderName, const uint32_t winSizeX, const uint32_t winSizeY) :
@@ -89,10 +83,9 @@ void SampleRender::setDataCallback(NeedImageCb<SampleRender> needImage, void* pD
 	m_pUserCookie = pData;
 }
 
-void SampleRender::setDataCallback_multithread(NeedImageCb<SampleRender> needImage, int camera_id)
+void SampleRender::setDataCallback_multithread(NeedImageCb<SampleRender> needImage)
 {
     m_NeedImage = needImage;
-    m_camera_id = camera_id;
 }
 
 bool SampleRender::run()
@@ -106,20 +99,6 @@ bool SampleRender::run()
 	glutMainLoop();
 
 	return true;
-}
-
-bool SampleRender::multithread_run()
-{
-    if(m_NeedImage)
-    {
-        std::cout << "using SampleRender pointer " << this << "to assign camera ID " << m_camera_id << " to glutIdleFunc." << std::endl;
-        glutIdleFunc(glutIdle_cameraID);
-    }
-
-//    glutSetOption(GLUT_ACTION_ON_WINDOW_CLOSE, GLUT_ACTION_CONTINUE_EXECUTION);
-//    glutMainLoop();
-
-    return true;
 }
 
 void SampleRender::initViewPort()
@@ -157,7 +136,7 @@ void SampleRender::display_cameraID()
 //        for (auto &th: threads) {
 //            th.join();
 //        }
-        m_NeedImage(this, m_camera_id);
+        m_NeedImage(this);
     }
 }
 
@@ -175,7 +154,7 @@ bool SampleRender::initOpenGL(int32_t argc, char **argv)
 	glDisableClientState(GL_COLOR_ARRAY);
 
     glutKeyboardFunc(glutKeyboard);
-    glutSpecialFunc(glutFuncKeyboard);
+    glutSpecialFunc(glutKeyboard);
 	glutDisplayFunc(glutDisplay);
     glutPassiveMotionFunc(glutXYMouse);
 	glutMouseFunc(glutMouse);
@@ -634,36 +613,12 @@ void SampleRender::glutXYMouse(int x, int y)
     m_CursorPos.y = y*g_pSampleRender->m_nTexMapY/g_pSampleRender->m_nWindowHeight;
 }
 
-void SampleRender::onKey(unsigned char key, int32_t x, int32_t y)
+template <typename T>
+void SampleRender::onKey(T key, int32_t x, int32_t y)
 {
-	switch (key)
-	{
-	case 27 :
-    case 'Q':
-    case 'q':
-           glutLeaveMainLoop();
-           break;
-	case 'r':
-		break;
-	case '2':
-		break;
-	case '3':
-		break;
-	case 'm':
-		break;
-	}
-
 	if (m_keyboard) {
 		m_keyboard(key, x, y);
 	}
-
-}
-
-void SampleRender::onFuncKey(int key, int32_t x, int32_t y)
-{
-    if (m_funckeyboard) {
-        m_funckeyboard(key, x, y);
-    }
 }
 
 void SampleRender::glutWindowReshape(int width, int height)
