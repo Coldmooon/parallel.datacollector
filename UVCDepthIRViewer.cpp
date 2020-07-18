@@ -88,43 +88,42 @@ void sleepMs (int32_t msecs) {
 int stop()
 {
     // close Camera
-    if(NULL != g_cameraDevice)
-    {
+    if (NULL != g_cameraDevice) {
         for (int k = 0; k < deviceCount; ++k) {
             imiCamStopStream(g_cameraDevice[k]);
             imiCamClose(g_cameraDevice[k]);
             g_cameraDevice[k] = NULL;
         }
-        delete [] g_cameraDevice;
+        delete[] g_cameraDevice;
     }
 
     //7.imiCloseStream()
-    for(uint32_t num = 0; num < deviceCount; ++num) {
-        if(NULL != g_streams[num]) {
+    for (uint32_t num = 0; num < deviceCount; ++num) {
+        if (NULL != g_streams[num]) {
             imiCloseStream(g_streams[num]);
             g_streams[num] = NULL;
         }
     }
 
     //8.imiCloseDevice()
-    if(NULL != g_ImiDevice) {
+    if (NULL != g_ImiDevice) {
         for (int k = 0; k < deviceCount; ++k) {
             imiCloseDevice(g_ImiDevice[k]);
             g_ImiDevice[k] = NULL;
         }
-        delete [] g_ImiDevice;
+        delete[] g_ImiDevice;
     }
 
     //9.imiReleaseDeviceList
-    if(NULL != g_DeviceAttr) {
+    if (NULL != g_DeviceAttr) {
         imiReleaseDeviceList(&g_DeviceAttr);
-//        g_DeviceAttr = NULL;
-        delete [] g_DeviceAttr;
+        //  g_DeviceAttr = NULL;
+        delete[] g_DeviceAttr;
     }
 
-// Depth + IR
+    // Depth + IR
     destroyCamAttrList();
-    delete [] g_pCameraAttr; // UVC
+    delete[] g_pCameraAttr; // UVC
 
     //10.imiDestroy()
     imiDestroy();
@@ -418,8 +417,7 @@ bool get_frames(ImiStreamHandle g_DepthIR_streams, ImiCameraHandle g_camera_Devi
     return false;
 }
 
-static bool receiving_rendering_single_a200(int camera_idx)
-{
+static bool receiving_rendering_single_a200(int camera_idx) {
     // method 1： define a 2-D array at runtime by 'new' method. Note: do not delete them in this function if declare them static varables.
     // static RGB888Pixel (* s_depthImages)[res_width * res_height] = new RGB888Pixel [deviceCount][g_width * g_height];
     // static RGB888Pixel (* s_colorImages)[res_width * res_height] = new RGB888Pixel [deviceCount][g_width * g_height];
@@ -430,41 +428,41 @@ static bool receiving_rendering_single_a200(int camera_idx)
     std::unique_ptr<RGB888Pixel[]> s_depthImages_data;
     std::unique_ptr<RGB888Pixel[]> s_irImages_data;
 
-    std::unique_ptr<RGB888Pixel * []> s_colorImages;
-    std::unique_ptr<RGB888Pixel * []> s_depthImages;
-    std::unique_ptr<RGB888Pixel * []> s_irImages;
+    std::unique_ptr<RGB888Pixel *[]> s_colorImages;
+    std::unique_ptr<RGB888Pixel *[]> s_depthImages;
+    std::unique_ptr<RGB888Pixel *[]> s_irImages;
 
     int8_t num_device = 1; // for temp test
     int8_t factor = 3; // can avoid signal aliasing ???? I guess.
     int resolution = g_width * g_height;
     int frame_length = resolution * factor;
 
-    s_colorImages_data = std::make_unique<RGB888Pixel []>(num_device * frame_length);
-    s_depthImages_data = std::make_unique<RGB888Pixel []>(num_device * frame_length);
-    s_irImages_data    = std::make_unique<RGB888Pixel []>(num_device * frame_length);
+    s_colorImages_data = std::make_unique<RGB888Pixel[]>(num_device * frame_length);
+    s_depthImages_data = std::make_unique<RGB888Pixel[]>(num_device * frame_length);
+    s_irImages_data = std::make_unique<RGB888Pixel[]>(num_device * frame_length);
 
-    s_colorImages = std::make_unique<RGB888Pixel * []>(num_device);
-    s_depthImages = std::make_unique<RGB888Pixel * []>(num_device);
-    s_irImages    = std::make_unique<RGB888Pixel * []>(num_device);
+    s_colorImages = std::make_unique<RGB888Pixel *[]>(num_device);
+    s_depthImages = std::make_unique<RGB888Pixel *[]>(num_device);
+    s_irImages = std::make_unique<RGB888Pixel *[]>(num_device);
 
     for (int i = 0; i < num_device; ++i) {
         s_colorImages[i] = &s_colorImages_data[i * frame_length];
         s_depthImages[i] = &s_depthImages_data[i * frame_length];
-        s_irImages[i]    = &s_irImages_data[i * frame_length];
+        s_irImages[i] = &s_irImages_data[i * frame_length];
     }
     // --------------------------------------- done ------------------------------------------------------
 
-    bool s_bColorFrameOK    = true; // don't declare it a static variable, or the whole streams will be dropped once some frame is lost.
+    bool s_bColorFrameOK = true; // don't declare it a static variable, or the whole streams will be dropped once some frame is lost.
     bool s_bDepth_IRFrameOK = true; // don't declare it a static variable, or the whole streams will be dropped once some frame is lost.
     static uint64_t s_depth_t = 0;
     static uint64_t s_color_t = 0;
 
-    s_bDepth_IRFrameOK &= get_frames(g_streams[camera_idx], NULL,NULL, s_depthImages[0], s_irImages[0]);
+    s_bDepth_IRFrameOK &= get_frames(g_streams[camera_idx], NULL, NULL, s_depthImages[0], s_irImages[0]);
     s_bColorFrameOK &= get_frames(NULL, g_cameraDevice[camera_idx], s_colorImages[0], NULL, NULL);
 
-    SampleRender* g_pRender = g_pRenders[camera_idx];
+    SampleRender *g_pRender = g_pRenders[camera_idx];
 
-    if(s_bColorFrameOK && s_bDepth_IRFrameOK) {
+    if (s_bColorFrameOK && s_bDepth_IRFrameOK) {
 
         WindowHint hint(0, 0, g_width, g_height);
 
@@ -498,10 +496,11 @@ static bool receiving_rendering_single_a200(int camera_idx)
 //            }
         drawtexts(g_pRender, tasks, task_id);
 //        g_pRender->drawCursorXYZValue(&imiFrame[0]);
-//        g_pRender->update();
     }
-    else
+    else {
         printf("frame loss!");
+        return false;
+    }
 
     return true;
 }
@@ -510,9 +509,7 @@ static bool receiving_rendering_single_a200(int camera_idx)
 int Exit()
 {
     stop();
-
     printf("------ exit ------\n");
-
     getchar();
 
     return 0;
@@ -587,13 +584,20 @@ static bool assign_tasks(SampleRender* g_pRender) {
 
     // single thread
     int win = glutGetWindow();
-    if (win - 1 < 0) std::cerr << "Got negative window ID." << std::endl;
+    if (win - 1 < 0) {std::cerr << "Got negative window ID." << std::endl; Exit(); return false;}
 
-    receiving_rendering_single_a200(win - 1);
+    bool isdone = receiving_rendering_single_a200(win - 1);
 
+    if (!isdone) {
+        std::cerr << "Rendering wrong. Please check receiving_rendering_single_a200()." << std::endl;
+        Exit();
+        return false;
+    }
     glutSwapBuffers();
     glutPostRedisplay();
     g_pRender->initViewPort();
+
+    return true;
 }
 
 void register_tasks(int argc, char** argv) {
