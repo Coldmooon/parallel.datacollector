@@ -506,46 +506,6 @@ static bool receiving_rendering_single_a200(int camera_idx)
     return true;
 }
 
-template<typename T>
-void keyboardFun(T key, int32_t x, int32_t y)
-{
-    tasks = load_tasks("./config.txt");
-    int8_t tmp = task_id;
-
-    switch (key) {
-        case GLUT_KEY_UP:
-            task_id++;
-            break;
-        case GLUT_KEY_DOWN:
-            task_id--;
-            break;
-        case GLUT_KEY_LEFT:
-            break;
-        case GLUT_KEY_RIGHT:
-            break;
-        case 's':
-            g_bSave = true;
-            break;
-        default:
-            printf("\n");
-            break;
-    }
-
-    if (key >= 48 && key <= 57) {
-        task_id = key - '0';
-        if (task_id < 0 || task_id >= tasks.size()) {
-            printf("ERROR: Please choose the task ID from %d to %d \n", 0, tasks.size() - 1);
-            task_id = tmp;
-        }
-        printf("Current task ID %d: %s \n", task_id, tasks[task_id].c_str());
-    }
-
-    if (task_id >= tasks.size()) {
-        printf("ERROR: Please choose the task ID from %d to %d \n", 0, tasks.size() - 1);
-        task_id = tmp;
-    }
-    printf("Current task ID %d: %s \n", task_id, tasks[task_id].c_str());
-}
 
 int Exit()
 {
@@ -556,6 +516,47 @@ int Exit()
     getchar();
 
     return 0;
+}
+
+template<typename T>
+void keyboardFun(T key, int32_t x, int32_t y)
+{
+    tasks = load_tasks("./config.txt");
+    int8_t tmp = task_id;
+    bool checknumber = false;
+
+    switch (key) {
+        case GLUT_KEY_UP:
+            task_id++;
+            if (task_id >= tasks.size()) task_id = 0;
+            break;
+        case GLUT_KEY_DOWN:
+            task_id--;
+            if (task_id < 0) task_id = tasks.size() - 1;
+            break;
+        case GLUT_KEY_LEFT:
+            break;
+        case GLUT_KEY_RIGHT:
+            break;
+        case 's':
+            g_bSave = true;
+            break;
+        case 'q':
+            Exit();
+            break;
+        default:
+            checknumber = true;
+            break;
+    }
+
+    if (checknumber && key >= 48 && key <= 57) {
+        task_id = key - '0';
+        if (task_id < 0 || task_id >= tasks.size()) {
+            printf("ERROR: Please choose the task ID from %d to %d \n", 0, tasks.size() - 1);
+            task_id = tmp;
+        }
+    }
+    printf("Current task ID %d: %s \n", task_id, tasks[task_id].c_str());
 }
 
 bool parse_cameras(const std::string & args, std::vector<int8_t> & cameras) {
@@ -604,8 +605,7 @@ void register_tasks(int argc, char** argv) {
 
         pRender->setDataCallback_multithread(assign_tasks);
 
-        pRender->setKeyCallback(keyboardFun<unsigned char>); // normal keys
-        pRender->setKeyCallback(keyboardFun<int>); // functional keys
+        pRender->setKeyCallback(keyboardFun<unsigned char>); // normal and functional keys
         g_pRenders.push_back(pRender);
     }
 }
