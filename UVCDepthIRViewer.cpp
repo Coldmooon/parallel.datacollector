@@ -38,6 +38,16 @@ All rights reserved.
 
 // VCLab Utils
 #include "VCLab/VCLab_utils.h"
+#include "VCLab/keyboard.h"
+
+// keyboard
+#include <inttypes.h>
+#include <stdarg.h>
+#include <stdbool.h>
+#include <stdio.h>
+#include <string.h>
+#include <uiohook.h>
+#include <wchar.h>
 
 // window handle
 SampleRender* g_pRender = NULL;
@@ -131,6 +141,14 @@ int stop()
     return -1;
 }
 
+int Exit()
+{
+    stop();
+    printf("------ exit ------\n");
+    getchar();
+
+    return 0;
+}
 
 bool devices_init() {
     int ret = imiInitialize();
@@ -505,55 +523,45 @@ static bool receiving_rendering_single_a200(int camera_idx) {
     return true;
 }
 
-
-int Exit()
-{
-    stop();
-    printf("------ exit ------\n");
-    getchar();
-
-    return 0;
-}
-
 template<typename T>
 void keyboardFun(T key, int32_t x, int32_t y)
 {
-    tasks = load_tasks("./config.txt");
-    int8_t tmp = task_id;
-    bool checknumber = false;
-
-    switch (key) {
-        case GLUT_KEY_UP:
-            task_id++;
-            if (task_id >= tasks.size()) task_id = 0;
-            break;
-        case GLUT_KEY_DOWN:
-            task_id--;
-            if (task_id < 0) task_id = tasks.size() - 1;
-            break;
-        case GLUT_KEY_LEFT:
-            break;
-        case GLUT_KEY_RIGHT:
-            break;
-        case 's':
-            g_bSave = true;
-            break;
-        case 'q':
-            Exit();
-            break;
-        default:
-            checknumber = true;
-            break;
-    }
-
-    if (checknumber && key >= 48 && key <= 57) {
-        task_id = key - '0';
-        if (task_id < 0 || task_id >= tasks.size()) {
-            printf("ERROR: Please choose the task ID from %d to %d \n", 0, tasks.size() - 1);
-            task_id = tmp;
-        }
-    }
-    printf("Current task ID %d: %s \n", task_id, tasks[task_id].c_str());
+//    tasks = load_tasks("./config.txt");
+//    int8_t tmp = task_id;
+//    bool checknumber = false;
+//
+//    switch (key) {
+//        case GLUT_KEY_UP:
+//            task_id++;
+//            if (task_id >= tasks.size()) task_id = 0;
+//            break;
+//        case GLUT_KEY_DOWN:
+//            task_id--;
+//            if (task_id < 0) task_id = tasks.size() - 1;
+//            break;
+//        case GLUT_KEY_LEFT:
+//            break;
+//        case GLUT_KEY_RIGHT:
+//            break;
+//        case 's':
+//            g_bSave = true;
+//            break;
+//        case 'q':
+//            Exit();
+//            break;
+//        default:
+//            checknumber = true;
+//            break;
+//    }
+//
+//    if (checknumber && key >= 48 && key <= 57) {
+//        task_id = key - '0';
+//        if (task_id < 0 || task_id >= tasks.size()) {
+//            printf("ERROR: Please choose the task ID from %d to %d \n", 0, tasks.size() - 1);
+//            task_id = tmp;
+//        }
+//    }
+//    printf("Current task ID %d: %s \n", task_id, tasks[task_id].c_str());
 }
 
 bool parse_cameras(const std::string & args, std::vector<int8_t> & cameras) {
@@ -572,16 +580,6 @@ bool parse_cameras(const std::string & args, std::vector<int8_t> & cameras) {
 }
 
 static bool assign_tasks(SampleRender* g_pRender) {
-
-    // multiple thread
-//    std::vector<std::thread> workers;
-//    for (int k = 0; k < deviceCount; ++k) {
-//        workers.push_back(std::thread(receiving_rendering_single_a200, g_pRender, k));
-//    }
-//    for (auto &worker: workers) {
-//        worker.join();
-//    }
-
     // single thread
     int win = glutGetWindow();
     if (win - 1 < 0) {std::cerr << "Got negative window ID." << std::endl; Exit(); return false;}
@@ -620,16 +618,116 @@ void idle () {
         glutPostRedisplay();
         g_pRenders[i]->initViewPort();
     }
-
-//    std::vector<std::thread> workers;
-//    for (int k = 0; k < deviceCount; ++k) {
-//        workers.push_back(std::thread(assign_tasks, g_pRenders[k]));
-//    }
-//    for (auto &worker: workers) {
-//        worker.join();
-//    }
-
 };
+
+void hotkeys(uiohook_event * const event) {
+    char buffer[256] = { 0 };
+    size_t length = snprintf(buffer, sizeof(buffer),
+    "id=%i,when=%" PRIu64 ",mask=0x%X",
+            event->type, event->time, event->mask);
+
+    switch (event->type) {
+
+        case EVENT_KEY_PRESSED:
+            // If the escape key is pressed, naturally terminate the program.
+            if (event->data.keyboard.keycode == VC_ESCAPE) {
+                int status = hook_stop();
+                switch (status) {
+                    // System level errors.
+                    case UIOHOOK_ERROR_OUT_OF_MEMORY:
+                        logger_proc(LOG_LEVEL_ERROR, "Failed to allocate memory. (%#X)", status);
+                        break;
+
+                    case UIOHOOK_ERROR_X_RECORD_GET_CONTEXT:
+                        // NOTE This is the only platform specific error that occurs on hook_stop().
+                        logger_proc(LOG_LEVEL_ERROR, "Failed to get XRecord context. (%#X)", status);
+                        break;
+
+                        // Default error.
+                    case UIOHOOK_FAILURE:
+                    default:
+                        logger_proc(LOG_LEVEL_ERROR, "An unknown hook error occurred. (%#X)", status);
+                        break;
+                }
+            }
+            else if (event->data.keyboard.keycode == VC_S)
+                g_bSave = true;
+            else if (event->data.keyboard.keycode == VC_UP) {
+                task_id++;
+                if (task_id >= tasks.size()) task_id = 0;
+            }
+            else if (event->data.keyboard.keycode == VC_DOWN) {
+                task_id--;
+                if (task_id < 0) task_id = tasks.size() - 1;
+            }
+//            else
+//                checknumber = true;
+//
+            if (event->data.keyboard.keycode >= VC_1 && event->data.keyboard.keycode <= VC_9) {
+                int tmp = task_id;
+                task_id = event->data.keyboard.keycode - VC_1 + 1;
+                if (task_id < 0 || task_id >= tasks.size()) {
+                    printf("ERROR: Please choose the task ID from %d to %d \n", 0, tasks.size() - 1);
+                    task_id = tmp;
+                }
+            }
+            printf("Current task ID %d: %s \n", task_id, tasks[task_id].c_str());
+
+        case EVENT_KEY_RELEASED:
+            snprintf(buffer + length, sizeof(buffer) - length,
+                     ",keycode=%u,rawcode=0x%X",
+                     event->data.keyboard.keycode, event->data.keyboard.rawcode);
+            break;
+
+        case EVENT_KEY_TYPED:
+            snprintf(buffer + length, sizeof(buffer) - length,
+                     ",keychar=%lc,rawcode=%u",
+                     (wint_t) event->data.keyboard.keychar,
+                     event->data.keyboard.rawcode);
+            break;
+
+        case EVENT_MOUSE_PRESSED:
+        case EVENT_MOUSE_RELEASED:
+        case EVENT_MOUSE_CLICKED:
+        case EVENT_MOUSE_MOVED:
+        case EVENT_MOUSE_DRAGGED:
+            snprintf(buffer + length, sizeof(buffer) - length,
+                     ",x=%i,y=%i,button=%i,clicks=%i",
+                     event->data.mouse.x, event->data.mouse.y,
+                     event->data.mouse.button, event->data.mouse.clicks);
+            break;
+
+        case EVENT_MOUSE_WHEEL:
+            snprintf(buffer + length, sizeof(buffer) - length,
+                     ",type=%i,amount=%i,rotation=%i",
+                     event->data.wheel.type, event->data.wheel.amount,
+                     event->data.wheel.rotation);
+            break;
+
+        default:
+            break;
+    }
+
+    fprintf(stdout, "%s\n",     buffer);
+}
+
+void keyboardIO_thread() {
+    printf("\nthis is keyboard threading\n");
+
+    keyboard_monitor(hotkeys);
+}
+
+void cameraIO_thread(int argc, char** argv) {
+    XInitThreads();
+    glutInit(&argc, argv);
+
+    register_tasks(argc, argv);
+
+//    glutIdleFunc(idle);
+    glutMainLoop();
+
+    Exit();
+}
 
 int main(int argc, char** argv)
 {
@@ -651,12 +749,17 @@ int main(int argc, char** argv)
     // Registering a callback function means to tell GLUT that it should use the function, e.g., needImage(), we just wrote/created for the rendering.
     // GLUT will call the function you choose whenever rendering is required.
     // Note: GLUT functions, as C functions, can not invoke a callback with instance specific information. So avoid registering memeber function as callback.
-    XInitThreads();
-    glutInit(&argc, argv);
 
-    register_tasks(argc, argv);
-
-//    glutIdleFunc(idle);
-    glutMainLoop();
-    return Exit();
+    printf("\n Go into multi threading. \n");
+    std::vector<std::thread> workers;
+    for (int k = 0; k < 2; ++k) {
+        if (k == 0)
+            workers.push_back(std::thread(cameraIO_thread, argc, argv));
+        else
+            workers.push_back(std::thread(keyboardIO_thread));
+    }
+    for (auto &worker: workers) {
+        worker.join();
+    }
+    return 0;
 }

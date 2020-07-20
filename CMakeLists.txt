@@ -18,7 +18,7 @@ include_directories(VCLab/)
 find_package(Threads REQUIRED)
 
 # define variable of source files for the main target.
-set(SOURCE_FILES UVCDepthIRViewer.cpp Common/Utill.cpp Common/Render.cpp VCLab/VCLab_utils.cpp VCLab/VCLab_utils.h)
+set(SOURCE_FILES UVCDepthIRViewer.cpp Common/Utill.cpp Common/Render.cpp VCLab/VCLab_utils.cpp VCLab/VCLab_utils.h VCLab/keyboard.h)
 
 # enable this if using Opencv.
 # find_package(OpenCV REQUIRED)
@@ -39,12 +39,13 @@ find_library(IMI_CAMERA ImiCamera libs)
 find_library(GL GL /usr/lib/x86_64-linux-gnu/)
 find_library(GLUT glut /usr/lib/x86_64-linux-gnu/)
 find_library(X11 X11 /usr/lib/)
+find_library(UIOHOOK uiohook /usr/local/lib/)
 
 # define library files variable for resuing.
 set(LIB_FILES ${IMI_NECT} ${IMI_CAMERA} ${GL} ${GLUT})
 
 # link the targets above to the libraries.
-target_link_libraries(UVCDepthIRViewer ${LIB_FILES} Threads::Threads X11)
+target_link_libraries(UVCDepthIRViewer ${LIB_FILES} Threads::Threads X11 ${UIOHOOK})
 target_link_libraries(UVCViewer ${LIB_FILES})
 target_link_libraries(DepthViewer ${LIB_FILES})
 target_link_libraries(IRView ${LIB_FILES})
