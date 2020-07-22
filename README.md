@@ -2,19 +2,23 @@
 Collect RGB / Depth / IR images via IMI A200 camera
 
 ## Compile
-Use `cmake` to compile, or just type `./make.sh` in the commmand line.
+1. Install [OpenGL](https://www.opengl.org/) and [freeglut](http://freeglut.sourceforge.net/).
+2. Install [kwhat/libuiohook](https://github.com/kwhat/libuiohook) for global keyboard events. You can also choose other global keyboard libraries as well.
+2. Use `cmake` to compile, or just type `./make.sh` in the commmand line.
 
 ## Use
 ```
-./UVCDepthIRViewer [camera_id]
+./UVCDepthIRViewer [camera_id] 
+
+The camera_id starts from 0.
 ```
 
-This will collect three modalities (RGB, Depth, and IR) simutaneously.
+This command will collect three modalities (RGB, Depth, and IR) simutaneously.
 
 #### Keyboard Control
 ```
 - '0-9': select the pre-defined labels
 - 'Uparrow / Downarrow': switch the pre-defined labels
 - 's': save 10 frames with label
-- 'q': quit the program
+- 'ESC': quit the program
 ```
