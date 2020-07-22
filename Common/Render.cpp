@@ -129,13 +129,6 @@ void SampleRender::display_cameraID()
 {
     if(NULL != m_NeedImage)
     {
-//        std::vector<std::thread> threads;
-//        for (int k = 0; k < deviceCount; ++k) {
-//            threads.push_back(std::thread(m_NeedImage, m_pUserCookie, k));
-//        }
-//        for (auto &th: threads) {
-//            th.join();
-//        }
         m_NeedImage(this);
     }
 }
