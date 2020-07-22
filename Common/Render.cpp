@@ -146,16 +146,17 @@ bool SampleRender::initOpenGL(int32_t argc, char **argv)
 	glEnableClientState(GL_VERTEX_ARRAY);
 	glDisableClientState(GL_COLOR_ARRAY);
 
-    glutKeyboardFunc(glutKeyboard);
-    glutSpecialFunc(glutKeyboard);
-	glutDisplayFunc(glutDisplay);
-    glutPassiveMotionFunc(glutXYMouse);
-	glutMouseFunc(glutMouse);
-	glutReshapeFunc(glutWindowReshape);
+	if (m_keyboard) {
+        glutKeyboardFunc(glutKeyboard);
+        glutSpecialFunc(glutKeyboard);
+	}
+//    glutPassiveMotionFunc(glutXYMouse);
+//	glutMouseFunc(glutMouse);
+    glutDisplayFunc(glutDisplay);
+    glutReshapeFunc(glutWindowReshape);
 
 	return true;
 }
-
 
 RenderWindow SampleRender::createSubWin(WinHint& winhint)
 {

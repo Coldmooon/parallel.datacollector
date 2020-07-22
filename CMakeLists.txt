@@ -37,7 +37,7 @@ add_executable(MultiUVC MultiUVC.cpp Common/Utill.cpp Common/Render.cpp)
 find_library(IMI_NECT iminect libs)
 find_library(IMI_CAMERA ImiCamera libs)
 find_library(GL GL /usr/lib/x86_64-linux-gnu/)
-find_library(GLUT glut /usr/lib/x86_64-linux-gnu/)
+find_library(GLUT glut /usr/local/lib/)
 find_library(X11 X11 /usr/lib/)
 find_library(UIOHOOK uiohook /usr/local/lib/)
 

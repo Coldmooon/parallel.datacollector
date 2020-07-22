@@ -67,9 +67,7 @@ int32_t deviceCameraCount = 0;
 std::vector<int8_t> cameras;
 
 // stream handles
-//ImiStreamHandle * g_streams = nullptr;
-ImiStreamHandle g_streams[10];
-uint32_t g_streamNum = 0;
+ImiStreamHandle * g_streams = nullptr;
 
 // switch of frame sync
 bool g_bNeedFrameSync = false;
@@ -143,6 +141,15 @@ int stop()
     return -1;
 }
 
+int Exit()
+{
+    stop();
+    printf("------ exit ------\n");
+    getchar();
+
+    return 0;
+}
+
 bool devices_init() {
     int ret = imiInitialize();
     if(0 != ret) {
@@ -210,8 +217,7 @@ bool devices_init() {
     }
 
     // open stream
-//    g_streams = new ImiStreamHandle[deviceCount];
-//    g_streams = new ImiStreamHandle[deviceCount];
+    g_streams = new ImiStreamHandle[deviceCount];
     for (int i = 0; i < deviceCount; ++i) {
         ret = imiCamStartStream(g_cameraDevice[i], &pMode);
         if(0 != ret) {
@@ -226,7 +232,7 @@ bool devices_init() {
         printf("imiSetImageRegistration ret = %d\n", ret);
 
         //5.imiOpenStream()
-        ret = imiOpenStream(g_ImiDevice[i], IMI_DEPTH_IR_FRAME, nullptr, nullptr, &g_streams[0]);
+        ret = imiOpenStream(g_ImiDevice[i], IMI_DEPTH_IR_FRAME, nullptr, nullptr, &g_streams[i]);
         std::cout << imiGetLastError() << std::endl;
         if(0 != ret) {
             printf("Open Depth %d Stream Failed! ret = %d\n", i, ret);
@@ -242,15 +248,6 @@ bool devices_init() {
         }
     }
     return true;
-}
-
-int Exit()
-{
-    stop();
-    printf("------ exit ------\n");
-    getchar();
-
-    return 0;
 }
 
 bool drawtexts(SampleRender* g_pRender, std::vector<std::string> tasks, int8_t task_id) {
@@ -386,11 +383,10 @@ bool get_depthIR(ImiStreamHandle g_DepthIR_streams, RGB888Pixel* s_depthImage, R
         return false;
     }
 }
-int count = 0;
+
 bool get_frames(ImiStreamHandle g_DepthIR_streams, ImiCameraHandle g_camera_Device, RGB888Pixel* s_colorImage, RGB888Pixel* s_depthImage, RGB888Pixel* s_IRImage=nullptr) {
 
     if ( nullptr != g_DepthIR_streams) {
-        printf("count : %d\n", count);
         int framesize = g_width * g_height;
         if(nullptr == s_depthImage && nullptr == s_IRImage) {
             std::cerr << "ERROR: no Depth / IR pixel container provided..";
@@ -427,7 +423,6 @@ bool get_frames(ImiStreamHandle g_DepthIR_streams, ImiCameraHandle g_camera_Devi
         }
 
         imiReleaseFrame(&imiFrame);
-        count ++;
 
         return true;
     }
@@ -498,8 +493,7 @@ static bool receiving_rendering_single_a200(int camera_idx) {
     static uint64_t s_depth_t = 0;
     static uint64_t s_color_t = 0;
 
-    std::cout << "camera_Idx: " << camera_idx << std::endl;
-    s_bDepth_IRFrameOK &= get_frames(g_streams[0], nullptr, nullptr, s_depthImages[0], s_irImages[0]);
+    s_bDepth_IRFrameOK &= get_frames(g_streams[camera_idx], nullptr, nullptr, s_depthImages[0], s_irImages[0]);
     s_bColorFrameOK &= get_frames(nullptr, g_cameraDevice[camera_idx], s_colorImages[0], nullptr, nullptr);
 
     SampleRender *g_pRender = g_pRenders[camera_idx];
@@ -540,52 +534,53 @@ static bool receiving_rendering_single_a200(int camera_idx) {
 //        g_pRender->drawCursorXYZValue(&imiFrame[0]);
     }
     else {
-        std::cerr << "\nFrame loss!" << std::endl;
-        return false;
+        std::cerr << "\nLost a frame !" << std::endl;
+        // Note: Do not return false here, or the program will stop running.
     }
 
     return true;
 }
 
+// keyboard function for freeglut callback.
 template<typename T>
 void keyboardFun(T key, int32_t x, int32_t y)
 {
-//    tasks = load_tasks("./config.txt");
-//    int8_t tmp = task_id;
-//    bool checknumber = false;
-//
-//    switch (key) {
-//        case GLUT_KEY_UP:
-//            task_id++;
-//            if (task_id >= tasks.size()) task_id = 0;
-//            break;
-//        case GLUT_KEY_DOWN:
-//            task_id--;
-//            if (task_id < 0) task_id = tasks.size() - 1;
-//            break;
-//        case GLUT_KEY_LEFT:
-//            break;
-//        case GLUT_KEY_RIGHT:
-//            break;
-//        case 's':
-//            g_bSave = true;
-//            break;
-//        case 'q':
-//            Exit();
-//            break;
-//        default:
-//            checknumber = true;
-//            break;
-//    }
-//
-//    if (checknumber && key >= 48 && key <= 57) {
-//        task_id = key - '0';
-//        if (task_id < 0 || task_id >= tasks.size()) {
-//            printf("ERROR: Please choose the task ID from %d to %d \n", 0, tasks.size() - 1);
-//            task_id = tmp;
-//        }
-//    }
-//    printf("Current task ID %d: %s \n", task_id, tasks[task_id].c_str());
+    tasks = load_tasks("./config.txt");
+    int8_t tmp = task_id;
+    bool checknumber = false;
+
+    switch (key) {
+        case GLUT_KEY_UP:
+            task_id++;
+            if (task_id >= tasks.size()) task_id = 0;
+            break;
+        case GLUT_KEY_DOWN:
+            task_id--;
+            if (task_id < 0) task_id = tasks.size() - 1;
+            break;
+        case GLUT_KEY_LEFT:
+            break;
+        case GLUT_KEY_RIGHT:
+            break;
+        case 's':
+            g_bSave = true;
+            break;
+        case 'q':
+            Exit();
+            break;
+        default:
+            checknumber = true;
+            break;
+    }
+
+    if (checknumber && key >= 48 && key <= 57) {
+        task_id = key - '0';
+        if (task_id < 0 || task_id >= tasks.size()) {
+            printf("ERROR: Please choose the task ID from %d to %d \n", 0, tasks.size() - 1);
+            task_id = tmp;
+        }
+    }
+    printf("Current task ID %d: %s \n", task_id, tasks[task_id].c_str());
 }
 
 bool parse_cameras(const std::string & args, std::vector<int8_t> & cameras) {
@@ -627,11 +622,10 @@ void register_tasks(int argc, char** argv) {
         SampleRender * pRender = new SampleRender(std::to_string(i).c_str(), g_width * 3 + 300, g_height + 10);
         pRender->m_camera_id = cameras[i];
 
-        pRender->init(argc, argv); // init and create a window
+        pRender->setDataCallback_multithread(assign_tasks); // set display callback function
+//        pRender->setKeyCallback(keyboardFun<unsigned char>); // set normal and functional keys callback
+        pRender->init(argc, argv); // initialize OpenGL and create a window
 
-        pRender->setDataCallback_multithread(assign_tasks);
-
-        pRender->setKeyCallback(keyboardFun<unsigned char>); // normal and functional keys
         g_pRenders.push_back(pRender);
     }
 }
@@ -644,6 +638,7 @@ void idle () {
     }
 };
 
+// keyboard function for UIOHOOK library
 void hotkeys(uiohook_event * const event) {
     char buffer[256] = { 0 };
     size_t length = snprintf(buffer, sizeof(buffer),
@@ -779,8 +774,8 @@ int main(int argc, char** argv)
     for (int k = 0; k < 2; ++k) {
         if (k == 0)
             workers.push_back(std::thread(cameraIO_thread, argc, argv));
-//        else
-//            workers.push_back(std::thread(keyboardIO_thread));
+        else
+            workers.push_back(std::thread(keyboardIO_thread));
     }
     for (auto &worker: workers) {
         worker.join();
