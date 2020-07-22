@@ -25,7 +25,6 @@ add_executable(UVCDepthIRViewer ${SOURCE_FILES})
 add_executable(UVCViewer UVCViewer.cpp Common/Utill.cpp Common/Render.cpp)
 add_executable(DepthViewer DepthViewer.cpp Common/Utill.cpp Common/Render.cpp)
 add_executable(IRView IRViewer.cpp Common/Utill.cpp Common/Render.cpp)
-add_executable(UVCDepthIRViewer_DP UVCDepthIRViewer_DP.cpp VCLab/VCLab_utils.cpp VCLab/VCLab_utils.h VCLab/VCLab_Render.cpp VCLab/VCLab_Render.h)
 add_executable(MultiUVC MultiUVC.cpp Common/Utill.cpp Common/Render.cpp)
 
 # complile .cpp source files as libraries (optional).
@@ -36,14 +35,13 @@ find_library(IMI_NECT iminect libs)
 find_library(IMI_CAMERA ImiCamera libs)
 find_library(GL GL /usr/lib/x86_64-linux-gnu/)
 find_library(GLUT glut /usr/lib/x86_64-linux-gnu/)
-
+find_library(X11 X11 /usr/lib/)
 # define library files variable for resuing.
 set(LIB_FILES ${IMI_NECT} ${IMI_CAMERA} ${GL} ${GLUT})
 
 # link the targets above to the libraries.
-target_link_libraries(UVCDepthIRViewer ${LIB_FILES})
+target_link_libraries(UVCDepthIRViewer ${LIB_FILES} X11)
 target_link_libraries(UVCViewer ${LIB_FILES})
 target_link_libraries(DepthViewer ${LIB_FILES})
 target_link_libraries(IRView ${LIB_FILES})
-target_link_libraries(UVCDepthIRViewer_DP ${LIB_FILES})
 target_link_libraries(MultiUVC ${LIB_FILES})
