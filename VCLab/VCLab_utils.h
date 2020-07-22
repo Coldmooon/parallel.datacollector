@@ -57,7 +57,6 @@ typedef struct tagRGBPixel
 
 int32_t saveToBMP(const char* bmpImagePath, const uint8_t* pframe, int width, int height);
 void save(uint16_t* pdata, RGB888Pixel * s_xxxImage, uint32_t size, int32_t width, int32_t height, std::string name_prefix);
-
 // --------------- task assign -------------------
 std::vector<std::string> load_tasks(std::string path);
 
