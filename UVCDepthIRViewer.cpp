@@ -254,7 +254,7 @@ bool drawtexts(SampleRender* g_pRender, std::vector<std::string> tasks, int8_t t
     std::string task_name = tasks[task_id];
     g_pRender->drawString("Task List: ", 1925, 40, 0.2, 0.4, 1);
     for (int x = 1940, y = 70, i = 0; i < tasks.size(); ++i, y += 30) {
-        std::string text = "[" + std::to_string(i) + "] " + tasks[i];
+        std::string text = "[" + std::to_string(i + 1) + "] " + tasks[i];
         if (i == task_id)
             g_pRender->drawString(text.c_str(), x, y, 1, 1., 0);
         else
@@ -533,10 +533,9 @@ static bool receiving_rendering_single_a200(int camera_idx) {
         drawtexts(g_pRender, tasks, task_id);
 //        g_pRender->drawCursorXYZValue(&imiFrame[0]);
     }
-    else {
+    else
         std::cerr << "\nLost a frame !" << std::endl;
         // Note: Do not return false here, or the program will stop running.
-    }
 
     return true;
 }
@@ -619,7 +618,9 @@ static bool assign_tasks(SampleRender* g_pRender) {
 
 void register_tasks(int argc, char** argv) {
     for (int i = 0; i < deviceCount; ++i){
-        SampleRender * pRender = new SampleRender(std::to_string(i).c_str(), g_width * 3 + 300, g_height + 10);
+        std::string window_name(argv[i + 1]);
+//        window_name.push_back(argv[i + 1]);
+        SampleRender * pRender = new SampleRender(("Camera " + window_name).c_str(), g_width * 3 + 300, g_height + 10);
         pRender->m_camera_id = cameras[i];
 
         pRender->setDataCallback_multithread(assign_tasks); // set display callback function
@@ -666,31 +667,28 @@ void hotkeys(uiohook_event * const event) {
                     case UIOHOOK_FAILURE:
                     default:
                         logger_proc(LOG_LEVEL_ERROR, "An unknown hook error occurred. (%#X)", status);
-                        break;
+                        Exit();
+                        exit(0);
                 }
             }
             else if (event->data.keyboard.keycode == VC_S)
                 g_bSave = true;
             else if (event->data.keyboard.keycode == VC_UP) {
-                task_id++;
-                if (task_id >= tasks.size()) task_id = 0;
-            }
-            else if (event->data.keyboard.keycode == VC_DOWN) {
                 task_id--;
                 if (task_id < 0) task_id = tasks.size() - 1;
             }
-//            else
-//                checknumber = true;
-//
-            if (event->data.keyboard.keycode >= VC_1 && event->data.keyboard.keycode <= VC_9) {
+            else if (event->data.keyboard.keycode == VC_DOWN) {
+                task_id++;
+                if (task_id >= tasks.size()) task_id = 0;
+            }
+            else if (event->data.keyboard.keycode >= VC_1 && event->data.keyboard.keycode <= VC_9) {
                 int tmp = task_id;
-                task_id = event->data.keyboard.keycode - VC_1 + 1;
+                task_id = event->data.keyboard.keycode - VC_1;
                 if (task_id < 0 || task_id >= tasks.size()) {
-                    printf("ERROR: Please choose the task ID from %d to %d \n", 0, tasks.size() - 1);
+                    printf("ERROR: Please choose the task ID from %d to %d \n", 1, tasks.size());
                     task_id = tmp;
                 }
             }
-            printf("Current task ID %d: %s \n", task_id, tasks[task_id].c_str());
 
         case EVENT_KEY_RELEASED:
             snprintf(buffer + length, sizeof(buffer) - length,
@@ -727,7 +725,7 @@ void hotkeys(uiohook_event * const event) {
             break;
     }
 
-    fprintf(stdout, "%s\n",     buffer);
+//    fprintf(stdout, "%s\n",     buffer);　// keycode debug
 }
 
 void keyboardIO_thread() {
