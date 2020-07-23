@@ -1,16 +1,4 @@
-/********************************************************************************
-  Copyright (c) 2015 Huajie IMI Technology Co., Ltd.
-  All rights reserved.
-
-  @File Name     : Render.cpp
-  @Author        : Chen Shangwei
-  @Date          : 2015-06-05
-  @Description   : ImiNeck Sample
-  @Version       : 0.1.0
-
-  @History       :
-  1.2015-06-05 Chen Shangwei Created file
-********************************************************************************/
+// Improved by coldmooon
 
 #if defined(_WIN32)
 #include <GL/glew.h>

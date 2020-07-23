@@ -1,17 +1,4 @@
-/********************************************************************************
-  Copyright (c) 2015 Huajie IMI Technology Co., Ltd.
-  All rights reserved.
-
-  @File Name     : Render.h
-  @Author        : Chen Shangwei
-  @Date          : 2015-05-28
-  @Description   : Sample View
-  @Version       : 0.1.0
-
-  @History       :
-  1.2015-05-28 Chen Shangwei Created file
-  2.2016-10-25 Aaron Zhang Modify
-********************************************************************************/
+// Improved by Coldmooon
 
 #ifndef _IMI_SAMPLE_RENDER_H_
 #define _IMI_SAMPLE_RENDER_H_
