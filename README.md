@@ -1,10 +1,10 @@
 # vclab.datacollector.a200
-Collect RGB / Depth / IR images via IMI A200 camera
+Multi-threading data collector for the IMI A200 camera. The program allows to open an arbitrary number of cameras at a high frame rate. 
 
 ## Compile
 1. Install [OpenGL](https://www.opengl.org/) and [freeglut](http://freeglut.sourceforge.net/).
-2. Install [kwhat/libuiohook](https://github.com/kwhat/libuiohook) for global keyboard events. You can also choose other global keyboard libraries as well.
-2. Use `cmake` to compile, or just type `./make.sh` in the commmand line.
+2. Install [kwhat/libuiohook](https://github.com/kwhat/libuiohook) for global keyboard events. You can also choose other global keyboard libraries as well. Just write your own codes in `hotkeys()`.
+2. Use `cmake` to compile, or type `./make.sh` in the commmand line.
 
 ## Use
 
@@ -18,6 +18,9 @@ The camera_id starts from 0. If camera_id is not given, the program will use all
 ```
 
 This command will collect three modalities (RGB, Depth, and IR) simutaneously.
+
+#### Label Configuration
+The program can save a frame with a specific `label` for classification tasks. The `config.txt` file defines all the labels. Simply add your label information to each line of `config.txt`. 
 
 #### Keyboard Control
 ```
