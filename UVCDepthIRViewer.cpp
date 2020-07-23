@@ -1,15 +1,4 @@
-/********************************************************************************
-Copyright (c) 2015 Huajie IMI Technology Co., Ltd.
-All rights reserved.
-
-@File Name		: main.cpp
-@Author			: Wendell
-@Date			: 2018-06-18
-@Description	: read UVC+Depth_IR frame and view
-@Version		: 1.0.0
-@History		:
-1.2018-06-18 Wendell Created file
-********************************************************************************/
+// Created by coldmooon
 
 #include <stdio.h>
 #include <string.h>
@@ -769,14 +758,11 @@ int main(int argc, char** argv)
 
     printf("\n Go into multi threading. \n");
     std::vector<std::thread> workers;
-    for (int k = 0; k < 2; ++k) {
-        if (k == 0)
-            workers.push_back(std::thread(cameraIO_thread, argc, argv));
-        else
-            workers.push_back(std::thread(keyboardIO_thread));
-    }
+    workers.push_back(std::thread(cameraIO_thread, argc, argv));
+    workers.push_back(std::thread(keyboardIO_thread));
     for (auto &worker: workers) {
         worker.join();
     }
+
     return 0;
 }
