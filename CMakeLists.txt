@@ -25,10 +25,6 @@ set(SOURCE_FILES UVCDepthIRViewer.cpp Common/Utill.cpp Common/Render.cpp VCLab/V
 
 # define targets for the project.
 add_executable(UVCDepthIRViewer ${SOURCE_FILES})
-add_executable(UVCViewer UVCViewer.cpp Common/Utill.cpp Common/Render.cpp)
-add_executable(DepthViewer DepthViewer.cpp Common/Utill.cpp Common/Render.cpp)
-add_executable(IRView IRViewer.cpp Common/Utill.cpp Common/Render.cpp)
-add_executable(MultiUVC MultiUVC.cpp Common/Utill.cpp Common/Render.cpp)
 
 # complile .cpp source files as libraries (optional).
 # add_library(librender Utill.cpp Render.cpp)
@@ -45,8 +41,4 @@ find_library(UIOHOOK uiohook /usr/local/lib/)
 set(LIB_FILES ${IMI_NECT} ${IMI_CAMERA} ${GL} ${GLUT})
 
 # link the targets above to the libraries.
-target_link_libraries(UVCDepthIRViewer ${LIB_FILES} Threads::Threads X11 ${UIOHOOK})
-target_link_libraries(UVCViewer ${LIB_FILES})
-target_link_libraries(DepthViewer ${LIB_FILES})
-target_link_libraries(IRView ${LIB_FILES})
-target_link_libraries(MultiUVC ${LIB_FILES})
+target_link_libraries(UVCDepthIRViewer ${LIB_FILES} Threads::Threads ${X11} ${UIOHOOK})
