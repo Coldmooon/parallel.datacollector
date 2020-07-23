@@ -7,10 +7,14 @@ Collect RGB / Depth / IR images via IMI A200 camera
 2. Use `cmake` to compile, or just type `./make.sh` in the commmand line.
 
 ## Use
+
+First, connect the A200 camera/s to PC.
+
+#### Run
 ```
 ./UVCDepthIRViewer [camera_id] 
 
-The camera_id starts from 0.
+The camera_id starts from 0. If camera_id is not given, the program will use all the cameras.
 ```
 
 This command will collect three modalities (RGB, Depth, and IR) simutaneously.
