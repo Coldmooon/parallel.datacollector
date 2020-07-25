@@ -1,7 +1,7 @@
 #include <stdint.h>
 #include <string.h>
 
-#include "../cameras/a200.imi/include/ImiNect.h"
+#include "../../cameras/a200.imi/include/ImiNect.h"
 
 #include "Utill.h"
 

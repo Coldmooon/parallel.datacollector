@@ -26,8 +26,8 @@
 #include <X11/Xlib.h>
 
 // VCLab Utils
-#include "VCLab/VCLab_utils.h"
-#include "VCLab/keyboard.h"
+#include "VCLab_utils.h"
+#include "keyboard.h"
 
 // keyboard
 #include <inttypes.h>

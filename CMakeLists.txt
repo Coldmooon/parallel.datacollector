@@ -18,7 +18,7 @@ include_directories(VCLab/)
 find_package(Threads REQUIRED)
 
 # define variable of source files for the main target.
-set(SOURCE_FILES UVCDepthIRViewer.cpp Common/Utill.cpp Common/Render.cpp VCLab/VCLab_utils.cpp VCLab/VCLab_utils.h VCLab/keyboard.h)
+set(SOURCE_FILES UVCDepthIRViewer.cpp common/libs/Utill.cpp common/libs/Render.cpp common/libs/VCLab_utils.cpp common/include/VCLab_utils.h common/include/keyboard.h)
 
 # enable this if using Opencv.
 # find_package(OpenCV REQUIRED)
@@ -30,8 +30,8 @@ add_executable(UVCDepthIRViewer ${SOURCE_FILES})
 # add_library(librender Utill.cpp Render.cpp)
 
 # find the path of libraries for the project.
-find_library(IMI_NECT iminect libs)
-find_library(IMI_CAMERA ImiCamera libs)
+find_library(IMI_NECT iminect common/libs)
+find_library(IMI_CAMERA ImiCamera common/libs)
 find_library(GL GL /usr/lib/x86_64-linux-gnu/)
 find_library(GLUT glut /usr/local/lib/)
 find_library(X11 X11 /usr/lib/)
