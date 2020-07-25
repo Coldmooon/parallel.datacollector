@@ -1,5 +1,5 @@
-# vclab.datacollector
-Parallel data-collecting framework with multi-processing and multi-threading. The framework takes the IMI A200 camera as an example but allows to add other camera modules. The data collector can open an arbitrary number of cameras at a high frame rate. 
+# parallel.datacollector.vclab
+Parallel data-collecting framework with multi-processing and multi-threading. The framework takes the IMI A200 camera as an example but also allows to add other camera modules provided by camera vendors. The data collector can open an arbitrary number of cameras simultaneously at a high frame rate. 
 
 ## Compile
 1. Install [OpenGL](https://www.opengl.org/) and [freeglut](http://freeglut.sourceforge.net/).
