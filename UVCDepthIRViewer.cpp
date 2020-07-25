@@ -16,7 +16,7 @@
 #include <memory>
 #include <thread>
 
-// Imi Head File
+// Camera module head files
 #include "cameras/a200.imi/include/ImiNect.h"
 #include "cameras/a200.imi/include/ImiCamera.h"
 #include "cameras/a200.imi/include/ImiCameraPrivate.h"
@@ -25,11 +25,11 @@
 #include "Render.h"
 #include <X11/Xlib.h>
 
-// VCLab Utils
+// Utils
 #include "VCLab_utils.h"
-#include "keyboard.h"
 
 // keyboard
+#include "keyboard.h"
 #include <inttypes.h>
 #include <stdarg.h>
 #include <stdbool.h>
@@ -37,6 +37,8 @@
 #include <string.h>
 #include <uiohook.h>
 #include <wchar.h>
+
+// -----------------------------------------------------------------------------
 
 // window handle
 SampleRender* g_pRender = nullptr;
@@ -65,12 +67,14 @@ const int32_t g_height = 480;
 
 bool g_bisPortraitDevice = false;
 
-// task
+// tasks
 int8_t task_id = 0;
 int n_frames_sampling = 10;
 int n_frames = n_frames_sampling;
 bool g_bSave = false;
 std::vector<std::string> tasks;
+
+// -----------------------------------------------------------------------------
 
 void sleepMs (int32_t msecs) {
 #ifdef _WIN32

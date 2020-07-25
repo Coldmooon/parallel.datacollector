@@ -1,5 +1,5 @@
-#ifndef _IMI_SAMPLE_UTILL_H_
-#define _IMI_SAMPLE_UTILL_H_
+#ifndef _UTILL_H_
+#define _UTILL_H_
 
 #include <stdint.h>
 

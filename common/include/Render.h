@@ -1,7 +1,7 @@
 // Improved by Coldmooon
 
-#ifndef _IMI_SAMPLE_RENDER_H_
-#define _IMI_SAMPLE_RENDER_H_
+#ifndef _RENDER_H_
+#define _RENDER_H_
 
 #include <string>
 #include <stdint.h>
