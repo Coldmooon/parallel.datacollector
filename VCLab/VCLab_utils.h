@@ -13,8 +13,8 @@
 #include <fstream>
 
 // Imi Head File
-#include "ImiNect.h"
-#include "ImiCamera.h"
+#include "../cameras/a200.imi/include/ImiNect.h"
+#include "../cameras/a200.imi/include/ImiCamera.h"
 #include "Render.h"
 
 // ------------------- file processing ---------------------

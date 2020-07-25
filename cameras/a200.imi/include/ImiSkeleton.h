@@ -16,8 +16,8 @@
 #ifndef _IMI_SKELETON_H_
 #define _IMI_SKELETON_H_
 
-#include <ImiPlatform.h>
-#include <ImiDefines.h>
+#include "ImiPlatform.h"
+#include "ImiDefines.h"
 
 /*! \addtogroup imiskeleton
 * @{

@@ -16,8 +16,8 @@
 #ifndef _IMI_UPGRADE_H_
 #define _IMI_UPGRADE_H_
 
-#include <ImiPlatform.h>
-#include <ImiDefines.h>
+#include "ImiPlatform.h"
+#include "ImiDefines.h"
 
 #ifdef __cplusplus
 extern "C" {

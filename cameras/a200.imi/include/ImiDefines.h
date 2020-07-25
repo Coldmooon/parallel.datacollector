@@ -17,7 +17,7 @@
 #define _IMI_DEFINES_H_
 
 #include <stdint.h>
-#include <ImiProperties.h>
+#include "ImiProperties.h"
 
 #ifdef __cplusplus
 extern "C" {

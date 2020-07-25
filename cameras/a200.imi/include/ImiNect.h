@@ -14,9 +14,9 @@
 #ifndef _IMI_NECT_H_
 #define _IMI_NECT_H_
 
-#include <ImiDefines.h>
-#include <ImiPlatform.h>
-#include <ImiUpgrade.h>
+#include "ImiDefines.h"
+#include "ImiPlatform.h"
+#include "ImiUpgrade.h"
 
 /*! \addtogroup iminect
 * @{
