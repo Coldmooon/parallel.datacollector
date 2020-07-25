@@ -12,8 +12,8 @@ set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/buildlibs)
 # set(LIBRARY_OUTPUT_DIRECTORY buildlibs)
 
 # specify include directory.
-include_directories(include/)
-include_directories(VCLab/)
+include_directories(common/include/)
+include_directories(cameras/a200.imi/include/)
 
 find_package(Threads REQUIRED)
 
