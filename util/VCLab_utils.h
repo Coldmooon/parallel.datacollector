@@ -13,9 +13,9 @@
 #include <fstream>
 
 // Imi Head File
-#include "../../cameras/a200.imi/include/ImiNect.h"
-#include "../../cameras/a200.imi/include/ImiCamera.h"
-#include "Render.h"
+#include "ImiNect.h"
+#include "ImiCamera.h"
+#include "UI/opengl/Render.h"
 
 // ------------------- file processing ---------------------
 template <class Container>

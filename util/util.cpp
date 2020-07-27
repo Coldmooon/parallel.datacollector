@@ -1,9 +1,9 @@
 #include <stdint.h>
 #include <string.h>
 
-#include "../../cameras/a200.imi/include/ImiNect.h"
+#include "ImiNect.h"
 
-#include "Utill.h"
+#include "util.h"
 
 #ifdef _WIN32
 	#ifdef __INTEL_COMPILER

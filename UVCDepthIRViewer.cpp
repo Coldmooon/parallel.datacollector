@@ -22,14 +22,14 @@
 #include "cameras/a200.imi/include/ImiCameraPrivate.h"
 
 // UI
-#include "Render.h"
+#include "UI/opengl/Render.h"
 #include <X11/Xlib.h>
 
 // Utils
-#include "VCLab_utils.h"
+#include "util/VCLab_utils.h"
 
 // keyboard
-#include "keyboard.h"
+#include "include/keyboard.hpp"
 #include <inttypes.h>
 #include <stdarg.h>
 #include <stdbool.h>

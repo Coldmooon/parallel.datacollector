@@ -12,7 +12,7 @@
 #include "ImiDefines.h"
 #include "ImiSkeleton.h"
 
-#include "Utill.h"
+#include "util/util.h"
 
 typedef struct WindowHint
 {

@@ -12,13 +12,14 @@ set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/buildlibs)
 # set(LIBRARY_OUTPUT_DIRECTORY buildlibs)
 
 # specify include directory.
-include_directories(common/include/)
+include_directories(.)
+include_directories(./include)
 include_directories(cameras/a200.imi/include/)
 
 find_package(Threads REQUIRED)
 
 # define variable of source files for the main target.
-set(SOURCE_FILES UVCDepthIRViewer.cpp common/libs/Utill.cpp common/libs/Render.cpp common/libs/VCLab_utils.cpp common/include/VCLab_utils.h common/include/keyboard.h)
+set(SOURCE_FILES UVCDepthIRViewer.cpp util/util.cpp UI/opengl/Render.cpp util/VCLab_utils.cpp util/VCLab_utils.h include/keyboard.hpp)
 
 # enable this if using Opencv.
 # find_package(OpenCV REQUIRED)
@@ -30,8 +31,8 @@ add_executable(UVCDepthIRViewer ${SOURCE_FILES})
 # add_library(librender Utill.cpp Render.cpp)
 
 # find the path of libraries for the project.
-find_library(IMI_NECT iminect common/libs)
-find_library(IMI_CAMERA ImiCamera common/libs)
+find_library(IMI_NECT iminect cameras/a200.imi/libs)
+find_library(IMI_CAMERA ImiCamera cameras/a200.imi/libs)
 find_library(GL GL /usr/lib/x86_64-linux-gnu/)
 find_library(GLUT glut /usr/local/lib/)
 find_library(X11 X11 /usr/lib/)

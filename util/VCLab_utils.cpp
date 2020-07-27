@@ -3,7 +3,7 @@
 //
 
 #include <regex>
-#include "VCLab_utils.h"
+#include "./util/VCLab_utils.h"
 
 //bmp buffer
 uint8_t g_bmpColor[1920*1080*3] = {0};
