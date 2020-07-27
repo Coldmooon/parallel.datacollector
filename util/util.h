@@ -3,6 +3,9 @@
 
 #include <stdint.h>
 
+// Camera module head files
+#include "a200.imi/include/ImiNect.h"
+
 #pragma pack (push, 1)
 
 typedef struct

@@ -1,10 +1,8 @@
 //
 // Created by coldmoon on 2020/6/26.
 //
-
 #ifndef UNTITLED_VCLAB_UTILS_H
 #define UNTITLED_VCLAB_UTILS_H
-
 
 #include <string>
 #include <iterator>
@@ -13,9 +11,12 @@
 #include <fstream>
 
 // Imi Head File
-#include "ImiNect.h"
-#include "ImiCamera.h"
+#include "a200.imi/include/ImiNect.h"
+#include "a200.imi/include/ImiCamera.h"
 #include "UI/opengl/Render.h"
+
+// system
+void sleepMs (int32_t msecs);
 
 // ------------------- file processing ---------------------
 template <class Container>
@@ -59,5 +60,6 @@ int32_t saveToBMP(const char* bmpImagePath, const uint8_t* pframe, int width, in
 void save(uint16_t* pdata, RGB888Pixel * s_xxxImage, uint32_t size, int32_t width, int32_t height, std::string name_prefix);
 // --------------- task assign -------------------
 std::vector<std::string> load_tasks(std::string path);
+bool parse_cameras(const std::string & args, std::vector<int8_t> & cameras);
 
 #endif //UNTITLED_VCLAB_UTILS_H

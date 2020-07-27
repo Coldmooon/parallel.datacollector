@@ -10,16 +10,15 @@
 #include <sys/time.h>
 #endif
 
+#include <string>
 #include <vector>
 #include <iostream>
 #include <GL/freeglut.h>
 #include <memory>
 #include <thread>
 
-// Camera module head files
-#include "cameras/a200.imi/include/ImiNect.h"
-#include "cameras/a200.imi/include/ImiCamera.h"
-#include "cameras/a200.imi/include/ImiCameraPrivate.h"
+// Camera modules
+#include "modules/a200.hpp"
 
 // UI
 #include "UI/opengl/Render.h"
@@ -28,44 +27,23 @@
 // Utils
 #include "util/VCLab_utils.h"
 
-// keyboard
-#include "include/keyboard.hpp"
+// IO
+#include "keyboard.hpp"
 #include <inttypes.h>
-#include <stdarg.h>
-#include <stdbool.h>
-#include <stdio.h>
-#include <string.h>
 #include <uiohook.h>
 #include <wchar.h>
 
 // -----------------------------------------------------------------------------
-
 // window handle
 SampleRender* g_pRender = nullptr;
 std::vector<SampleRender *> g_pRenders;
 
-// device attributes
-ImiDeviceAttribute* g_DeviceAttr = nullptr; // Depth + IR
-ImiCamAttribute*    g_pCameraAttr = nullptr; // UVC
-
-// device handle
-ImiDeviceHandle * g_ImiDevice    = nullptr;
-ImiCameraHandle * g_cameraDevice = nullptr;
-uint32_t deviceCount = 0;
-int32_t deviceCameraCount = 0;
-
 // parse camera specified
+uint32_t deviceCount = 0;
 std::vector<int8_t> cameras;
-
-// stream handles
-ImiStreamHandle * g_streams = nullptr;
 
 // switch of frame sync
 bool g_bNeedFrameSync = false;
-const int32_t g_width  = 640;
-const int32_t g_height = 480;
-
-bool g_bisPortraitDevice = false;
 
 // tasks
 int8_t task_id = 0;
@@ -75,174 +53,6 @@ bool g_bSave = false;
 std::vector<std::string> tasks;
 
 // -----------------------------------------------------------------------------
-
-void sleepMs (int32_t msecs) {
-#ifdef _WIN32
-    Sleep (msecs);
-#else
-    struct timespec short_wait;
-    struct timespec remainder;
-    short_wait.tv_sec = msecs / 1000;
-    short_wait.tv_nsec = (msecs % 1000) * 1000 * 1000;
-    nanosleep (&short_wait, &remainder);
-#endif
-}
-
-int stop()
-{
-    // close Camera
-    if (nullptr != g_cameraDevice) {
-        for (int k = 0; k < deviceCount; ++k) {
-            imiCamStopStream(g_cameraDevice[k]);
-            imiCamClose(g_cameraDevice[k]);
-            g_cameraDevice[k] = nullptr;
-        }
-        delete[] g_cameraDevice;
-    }
-
-    //7.imiCloseStream()
-    for (uint32_t num = 0; num < deviceCount; ++num) {
-        if (nullptr != g_streams[num]) {
-            imiCloseStream(g_streams[num]);
-            g_streams[num] = nullptr;
-        }
-    }
-
-    //8.imiCloseDevice()
-    if (nullptr != g_ImiDevice) {
-        for (int k = 0; k < deviceCount; ++k) {
-            imiCloseDevice(g_ImiDevice[k]);
-            g_ImiDevice[k] = nullptr;
-        }
-        delete[] g_ImiDevice;
-    }
-
-    //9.imiReleaseDeviceList
-    if (nullptr != g_DeviceAttr) {
-        imiReleaseDeviceList(&g_DeviceAttr);
-        //  g_DeviceAttr = nullptr;
-        delete[] g_DeviceAttr;
-    }
-
-    // Depth + IR
-    destroyCamAttrList();
-    delete[] g_pCameraAttr; // UVC
-
-    //10.imiDestroy()
-    imiDestroy();
-
-    return -1;
-}
-
-int Exit()
-{
-    stop();
-    printf("------ exit ------\n");
-    getchar();
-
-    return 0;
-}
-
-bool devices_init() {
-    int ret = imiInitialize();
-    if(0 != ret) {
-        printf("ImiNect Init Failed! ret = %d\n", ret);
-        stop();
-        exit(-1);
-    }
-    printf("ImiNect Init Success.\n");
-
-    //2.imiGetDeviceList()
-    imiGetDeviceList(&g_DeviceAttr, &deviceCount);
-    if((deviceCount <= 0) || (nullptr == g_DeviceAttr)) {
-        printf("Get No Connected ImiDevice!\n");
-        stop();
-        exit(-1);
-    }
-    printf("Get %d Connected ImiDevice.\n", deviceCount);
-
-    if (cameras.size() == 0) {
-        for (int i = 0; i < deviceCount; ++i)
-            cameras.push_back(i);
-    }
-    else
-        deviceCount = deviceCount > cameras.size()? cameras.size(): deviceCount;
-
-    //3.imiOpenDevice()
-    g_ImiDevice = new ImiDeviceHandle[deviceCount];
-    for (int i = 0; i < deviceCount; ++i) {
-        int8_t k = cameras[i];
-        ret = imiOpenDevice(g_DeviceAttr[k].uri, &g_ImiDevice[i], 0);
-        if(0 != ret) {
-            printf("Open ImiDevice %d Failed! ret = %d\n", k, ret);
-            stop();
-            exit(-1);
-        }
-        printf("ImiDevice %d Opened.\n", k);
-    }
-
-    ret = getCamAttrList(&g_pCameraAttr, &deviceCameraCount);
-    deviceCameraCount = deviceCameraCount > cameras.size()? cameras.size(): deviceCameraCount;
-    if (ret != 0 || nullptr == g_pCameraAttr || deviceCount != deviceCameraCount) {
-        printf("getCamAttrList Failed! ret = %d\n", ret);
-        stop();
-        exit(-1);
-    }
-
-    // open UVC camera
-    g_cameraDevice = new ImiCameraHandle[deviceCount];
-    for (int i = 0; i < deviceCount; ++i) {
-        int8_t k = cameras[i];
-        ret = imiCamOpenURI(g_pCameraAttr[k].uri, &g_cameraDevice[i]);
-        if(0 != ret) {
-            printf("Open UVC Camera %d Failed! ret = %d\n", k, ret);
-            stop();
-            exit(-1);
-        }
-        printf("Open UVC Camera %d Success  %s\n", i, g_pCameraAttr[k].uri);
-    }
-
-    ImiCameraFrameMode pMode = {CAMERA_PIXEL_FORMAT_RGB888, 640,  480,  24};
-
-    if(g_bisPortraitDevice) {
-        pMode.resolutionX = 480;
-        pMode.resolutionY = 640;
-    }
-
-    // open stream
-    g_streams = new ImiStreamHandle[deviceCount];
-    for (int i = 0; i < deviceCount; ++i) {
-        ret = imiCamStartStream(g_cameraDevice[i], &pMode);
-        if(0 != ret) {
-            printf("Start Camera %d stream Failed! ret = %d\n", i, ret);
-            stop();
-            exit(-1);
-        }
-        printf("Start Camera %d stream Success\n", i);
-
-        //4.imiSetImageRegistration
-        ret = imiSetImageRegistration(g_ImiDevice[i], IMI_TRUE);
-        printf("imiSetImageRegistration ret = %d\n", ret);
-
-        //5.imiOpenStream()
-        ret = imiOpenStream(g_ImiDevice[i], IMI_DEPTH_IR_FRAME, nullptr, nullptr, &g_streams[i]);
-        std::cout << imiGetLastError() << std::endl;
-        if(0 != ret) {
-            printf("Open Depth %d Stream Failed! ret = %d\n", i, ret);
-            stop();
-            exit(-1);
-        }
-        printf("Open Depth %d Stream Success.\n", i);
-
-        // imiCamSetFramesSync to set Color Depth_IR sync
-        if(!g_bisPortraitDevice) {
-            ret = imiCamSetFramesSync(g_cameraDevice[i], true);
-            printf("Camera [%d] imiCamSetFramesSync = %d\n", i, ret);
-        }
-    }
-    return true;
-}
-
 bool drawtexts(SampleRender* g_pRender, std::vector<std::string> tasks, int8_t task_id) {
     std::string task_name = tasks[task_id];
     g_pRender->drawString("Task List: ", 1925, 40, 0.2, 0.4, 1);
@@ -256,206 +66,17 @@ bool drawtexts(SampleRender* g_pRender, std::vector<std::string> tasks, int8_t t
     return true;
 }
 
-void get_color(ImiCameraHandle g_camera_Device, RGB888Pixel* s_colorImage) {
-    if (nullptr != g_camera_Device) {
-        if ( nullptr == s_colorImage)
-            std::cerr << "ERROR: no UVC pixel container provided..";
-
-        ImiCameraFrame *pCamFrame = nullptr;
-        if (0 != imiCamReadNextFrame(g_camera_Device, &pCamFrame, 100))
-            std::cerr << "ERROR: could not get frame.." << std::endl;
-
-        if (nullptr == pCamFrame)
-            std::cerr << "Get frame failed.." << std::endl;
-
-        memcpy((void *) s_colorImage, (const void *) pCamFrame->pData, pCamFrame->size);
-
-        imiCamReleaseFrame(&pCamFrame);
-    }
-    else
-        std::cerr << "Camber Handle is nullptr.." << std::endl;
-}
-
-bool get_IR(ImiStreamHandle g_DepthIR_streams, RGB888Pixel * s_IRImage) {
-
-    if (nullptr != g_DepthIR_streams) {
-        int framesize = g_width * g_height;
-        if (nullptr == s_IRImage)
-            std::cerr << "ERROR: no IR pixel container provided.." << std::endl;
-
-        ImiImageFrame *imiFrame = nullptr;
-        if (0 != imiReadNextFrame(g_DepthIR_streams, &imiFrame, 100))
-            std::cerr << "ERROR: could not get IR frame.." << std::endl;
-
-        if (nullptr != imiFrame) {
-            uint16_t *pIR = (uint16_t *) imiFrame->pData + framesize;
-            for (uint32_t i = 0; i < framesize; ++i) {
-                s_IRImage[i].r = pIR[i] >> 2;
-                s_IRImage[i].g = s_IRImage[i].r;
-                s_IRImage[i].b = s_IRImage[i].r;
-            }
-        }
-        else
-            std::cerr << "Get IR frame failed.." << std::endl;
-
-        imiReleaseFrame(&imiFrame);
-        return true;
-    }
-    else {
-        std::cerr << "No IR stream given..." << std::endl;
-        return false;
-    }
-}
-
-bool get_depth(ImiStreamHandle g_DepthIR_streams, RGB888Pixel* s_depthImage) {
-
-    if (nullptr != g_DepthIR_streams) {
-        int framesize = g_width * g_height;
-        if (nullptr == s_depthImage)
-            std::cerr << "ERROR: no Depth pixel container provided.." << std::endl;
-
-        ImiImageFrame *imiFrame = nullptr;
-        if (0 != imiReadNextFrame(g_DepthIR_streams, &imiFrame, 100))
-            std::cerr << "ERROR: could not get Depth frame.." << std::endl;
-
-        if (nullptr != imiFrame) {
-            uint16_t *pde = (uint16_t *) imiFrame->pData;
-            for (uint32_t i = 0; i < framesize; ++i) {
-                s_depthImage[i].r = pde[i] >> 3;
-                s_depthImage[i].g = s_depthImage[i].r;
-                s_depthImage[i].b = s_depthImage[i].r;
-            }
-        }
-        else
-            std::cerr << "Get Depth frame failed.." << std::endl;
-
-        imiReleaseFrame(&imiFrame);
-        return true;
-    }
-    else {
-        std::cerr << "No Depth stream given..." << std::endl;
-        return false;
-    }
-}
-
-bool get_depthIR(ImiStreamHandle g_DepthIR_streams, RGB888Pixel* s_depthImage, RGB888Pixel * s_IRImage) {
-
-    if (nullptr != g_DepthIR_streams) {
-        int framesize = g_width * g_height;
-        if (nullptr == s_depthImage)
-            std::cerr << "ERROR: no Depth / IR pixel container provided.." << std::endl;
-
-        ImiImageFrame *imiFrame = nullptr;
-        if (0 != imiReadNextFrame(g_DepthIR_streams, &imiFrame, 100))
-            std::cerr << "ERROR: could not get Depth / IR frame.." << std::endl;
-
-        if (nullptr != imiFrame) {
-            uint16_t *pde = (uint16_t *) imiFrame->pData;
-            for (uint32_t i = 0; i < framesize; ++i) {
-                s_depthImage[i].r = pde[i] >> 3;
-                s_depthImage[i].g = s_depthImage[i].r;
-                s_depthImage[i].b = s_depthImage[i].r;
-            }
-            if (nullptr != s_IRImage) {
-                uint16_t *pIR = (uint16_t *) imiFrame->pData + framesize;
-                for (uint32_t i = 0; i < framesize; ++i) {
-                    s_IRImage[i].r = pIR[i] >> 2;
-                    s_IRImage[i].g = s_IRImage[i].r;
-                    s_IRImage[i].b = s_IRImage[i].r;
-                }
-            }
-        }
-        else
-            std::cerr << "Get Depth / IR frame failed.." << std::endl;
-
-        imiReleaseFrame(&imiFrame);
-        return true;
-    }
-    else {
-        std::cerr << "No Depth/IR stream given..." << std::endl;
-        return false;
-    }
-}
-
-bool get_frames(ImiStreamHandle g_DepthIR_streams, ImiCameraHandle g_camera_Device, RGB888Pixel* s_colorImage, RGB888Pixel* s_depthImage, RGB888Pixel* s_IRImage=nullptr) {
-
-    if ( nullptr != g_DepthIR_streams) {
-        int framesize = g_width * g_height;
-        if(nullptr == s_depthImage && nullptr == s_IRImage) {
-            std::cerr << "ERROR: no Depth / IR pixel container provided..";
-            return false;
-        }
-
-        ImiImageFrame *imiFrame = nullptr;
-        if (0 != imiReadNextFrame(g_DepthIR_streams, &imiFrame, 100)) {
-            std::cerr << "imiReadNextFrame() function reported an error." << std::endl;
-            return false;
-        }
-
-        if (nullptr != imiFrame) {
-            if (nullptr != s_depthImage) {
-                uint16_t *pde = (uint16_t *) imiFrame->pData;
-                for (uint32_t i = 0; i < framesize; ++i) {
-                    s_depthImage[i].r = pde[i] >> 3;
-                    s_depthImage[i].g = s_depthImage[i].r;
-                    s_depthImage[i].b = s_depthImage[i].r;
-                }
-            }
-            if (nullptr != s_IRImage) {
-                uint16_t *pIR = (uint16_t *) imiFrame->pData + framesize;
-                for (uint32_t i = 0; i < framesize; ++i) {
-                    s_IRImage[i].r = pIR[i] >> 2;
-                    s_IRImage[i].g = s_IRImage[i].r;
-                    s_IRImage[i].b = s_IRImage[i].r;
-                }
-            }
-        }
-        else {
-            std::cerr << "Failed to receive the next frame in imiReadNextFrame() function." << std::endl;
-            return false;
-        }
-
-        imiReleaseFrame(&imiFrame);
-
-        return true;
-    }
-
-    if (nullptr != g_camera_Device) {
-        if ( nullptr == s_colorImage) {
-            std::cerr << "ERROR: no UVC pixel container provided..";
-            return false;
-        }
-
-        ImiCameraFrame *pCamFrame = nullptr;
-        if (0 != imiCamReadNextFrame(g_camera_Device, &pCamFrame, 100)) {
-            std::cerr << "imiCamReadNextFrame() function reported an error." << std::endl;
-            return false;
-        }
-
-        if (nullptr != pCamFrame)
-            memcpy((void *) s_colorImage, (const void *) pCamFrame->pData, pCamFrame->size);
-        else {
-            std::cerr << "Failed to receive the next frame in imiCamReadNextFrame() function." << std::endl;
-            return false;
-        }
-
-        imiCamReleaseFrame(&pCamFrame);
-        return true;
-    }
-
-    return false;
-}
-
-static bool receiving_rendering_single_a200(int camera_idx) {
+static bool receiving_rendering_opengl(int camera_idx) {
 
     const int8_t factor = 3; // can avoid signal aliasing ???? I guess.
     const int resolution = g_width * g_height;
     const int frame_length = resolution * factor;
+    const int deviceCount = 1; // shadow the global variable for test
 
     // method 1： define a 2-D array at runtime by 'new' method. Note: do not delete them in this function if declare them static varables.
-     static RGB888Pixel (* s_depthImages)[frame_length] = new RGB888Pixel [deviceCount][frame_length];
-     static RGB888Pixel (* s_colorImages)[frame_length] = new RGB888Pixel [deviceCount][frame_length];
-     static RGB888Pixel (* s_irImages)[frame_length] = new RGB888Pixel [deviceCount][frame_length];
+    static RGB888Pixel (*s_depthImages)[frame_length] = new RGB888Pixel[deviceCount][frame_length];
+    static RGB888Pixel (*s_colorImages)[frame_length] = new RGB888Pixel[deviceCount][frame_length];
+    static RGB888Pixel (*s_irImages)[frame_length] = new RGB888Pixel[deviceCount][frame_length];
 
     // method 2： define a 2-D array at runtime using smart pointer, which is a little unstable.
 //    std::unique_ptr<RGB888Pixel[]> s_colorImages_data;
@@ -483,11 +104,9 @@ static bool receiving_rendering_single_a200(int camera_idx) {
 
     bool s_bColorFrameOK = true; // don't declare it a static variable, or the whole streams will be dropped once some frame is lost.
     bool s_bDepth_IRFrameOK = true; // don't declare it a static variable, or the whole streams will be dropped once some frame is lost.
-    static uint64_t s_depth_t = 0;
-    static uint64_t s_color_t = 0;
 
-    s_bDepth_IRFrameOK &= get_frames(g_streams[camera_idx], nullptr, nullptr, s_depthImages[0], s_irImages[0]);
-    s_bColorFrameOK &= get_frames(nullptr, g_cameraDevice[camera_idx], s_colorImages[0], nullptr, nullptr);
+    s_bDepth_IRFrameOK &= get_a200_frame(camera_idx, nullptr, s_depthImages[0], s_irImages[0]);
+    s_bColorFrameOK &= get_a200_frame(camera_idx, s_colorImages[0], nullptr, nullptr);
 
     SampleRender *g_pRender = g_pRenders[camera_idx];
 
@@ -558,7 +177,7 @@ void keyboardFun(T key, int32_t x, int32_t y)
             g_bSave = true;
             break;
         case 'q':
-            Exit();
+            Exit(deviceCount);
             break;
         default:
             checknumber = true;
@@ -575,31 +194,16 @@ void keyboardFun(T key, int32_t x, int32_t y)
     printf("Current task ID %d: %s \n", task_id, tasks[task_id].c_str());
 }
 
-bool parse_cameras(const std::string & args, std::vector<int8_t> & cameras) {
-    for (char const &c: args) {
-        if(isdigit(c)) {
-            int id = c - '0';
-            cameras.push_back(id);
-        }
-        else if (c == ',')
-            continue;
-        else {
-            std::cerr << "Format: 0,1,2,3,4 ..." << std::endl;
-            exit(-1);
-        }
-    }
-}
-
 static bool assign_tasks(SampleRender* g_pRender) {
     // single thread
     int win = glutGetWindow();
-    if (win - 1 < 0) {std::cerr << "Got negative window ID." << std::endl; Exit(); return false;}
+    if (win - 1 < 0) {std::cerr << "Got negative window ID." << std::endl; Exit(deviceCount); return false;}
 
-    bool isdone = receiving_rendering_single_a200(win - 1);
+    bool isdone = receiving_rendering_opengl(win - 1);
 
     if (!isdone) {
         std::cerr << "\nRendering wrong. Please check receiving_rendering_single_a200()." << std::endl;
-        Exit();
+        Exit(deviceCount);
         return false;
     }
     glutSwapBuffers();
@@ -660,7 +264,7 @@ void hotkeys(uiohook_event * const event) {
                     case UIOHOOK_FAILURE:
                     default:
                         logger_proc(LOG_LEVEL_ERROR, "An unknown hook error occurred. (%#X)", status);
-                        Exit();
+                        Exit(deviceCount);
                         exit(0);
                 }
             }
@@ -736,7 +340,7 @@ void cameraIO_thread(int argc, char** argv) {
 //    glutIdleFunc(idle);
     glutMainLoop();
     std::cout << "Exited glutMainLoop." << std::endl;
-    Exit();
+    Exit(deviceCount);
 }
 
 int main(int argc, char** argv)
@@ -744,14 +348,13 @@ int main(int argc, char** argv)
     if (nullptr != argv[1])
         parse_cameras(argv[1], cameras);
 
-    if(!devices_init()) {
-        printf("------ exit ------\n");
+    deviceCount += a200init(cameras);
+    if(deviceCount == 0) {
+        std::cerr << "Error Counting devices." << std::endl; exit(-1);
         getchar();
     }
 
-    if (deviceCount == 0) {std::cerr << "Error Counting devices." << std::endl; exit(-1);}
     tasks = load_tasks("./config.txt");
-
     // Glut pipline:
     // 1. initialize the window properties --> 2. create the window --> 3. register the callback function when an event, e.g., a mouse move, occurs.
     // That is to tell GLUT which function to call back --> 4. enter the event processing loop
@@ -759,8 +362,6 @@ int main(int argc, char** argv)
     // Registering a callback function means to tell GLUT that it should use the function, e.g., needImage(), we just wrote/created for the rendering.
     // GLUT will call the function you choose whenever rendering is required.
     // Note: GLUT functions, as C functions, can not invoke a callback with instance specific information. So avoid registering memeber function as callback.
-
-    printf("\n Go into multi threading. \n");
     std::vector<std::thread> workers;
     workers.push_back(std::thread(cameraIO_thread, argc, argv));
     workers.push_back(std::thread(keyboardIO_thread));

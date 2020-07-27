@@ -1,12 +1,23 @@
 //
 // Created by coldmoon on 2020/6/26.
 //
-
 #include <regex>
 #include "./util/VCLab_utils.h"
 
 //bmp buffer
 uint8_t g_bmpColor[1920*1080*3] = {0};
+
+void sleepMs (int32_t msecs) {
+#ifdef _WIN32
+    Sleep (msecs);
+#else
+    struct timespec short_wait;
+    struct timespec remainder;
+    short_wait.tv_sec = msecs / 1000;
+    short_wait.tv_nsec = (msecs % 1000) * 1000 * 1000;
+    nanosleep (&short_wait, &remainder);
+#endif
+}
 
 template <class Container>
 void split_string(const std::string& str, Container& cont) {
@@ -119,4 +130,19 @@ std::vector<std::string> load_tasks(std::string path) {
 //    std::copy(task_list.begin(), task_list.end(), std::ostream_iterator<std::string>(std::cout, "\n"));
 
     return task_list;
+}
+
+bool parse_cameras(const std::string & args, std::vector<int8_t> & cameras) {
+    for (char const &c: args) {
+        if(isdigit(c)) {
+            int id = c - '0';
+            cameras.push_back(id);
+        }
+        else if (c == ',')
+            continue;
+        else {
+            std::cerr << "Format: 0,1,2,3,4 ..." << std::endl;
+            exit(-1);
+        }
+    }
 }

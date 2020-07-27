@@ -14,12 +14,12 @@ set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/buildlibs)
 # specify include directory.
 include_directories(.)
 include_directories(./include)
-include_directories(cameras/a200.imi/include/)
+include_directories(cameras/)
 
 find_package(Threads REQUIRED)
 
 # define variable of source files for the main target.
-set(SOURCE_FILES UVCDepthIRViewer.cpp util/util.cpp UI/opengl/Render.cpp util/VCLab_utils.cpp util/VCLab_utils.h include/keyboard.hpp)
+set(SOURCE_FILES UVCDepthIRViewer.cpp util/util.cpp UI/opengl/Render.cpp util/VCLab_utils.cpp util/VCLab_utils.h include/keyboard.hpp modules/a200.hpp)
 
 # enable this if using Opencv.
 # find_package(OpenCV REQUIRED)

@@ -8,9 +8,9 @@
 #include <string.h>
 
 //Imi Head File
-#include "ImiNect.h"
-#include "ImiDefines.h"
-#include "ImiSkeleton.h"
+#include "a200.imi/include/ImiNect.h"
+#include "a200.imi/include/ImiDefines.h"
+#include "a200.imi/include/ImiSkeleton.h"
 
 #include "util/util.h"
 

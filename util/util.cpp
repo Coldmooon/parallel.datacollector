@@ -1,9 +1,9 @@
 #include <stdint.h>
 #include <string.h>
 
-#include "ImiNect.h"
+#include "a200.imi/include/ImiNect.h"
 
-#include "util.h"
+#include "util/util.h"
 
 #ifdef _WIN32
 	#ifdef __INTEL_COMPILER
