@@ -47,25 +47,10 @@ bool g_bNeedFrameSync = false;
 
 // tasks
 int8_t task_id = 0;
-int n_frames_sampling = 10;
-int n_frames = n_frames_sampling;
 bool g_bSave = false;
 std::vector<std::string> tasks;
 
 // -----------------------------------------------------------------------------
-bool drawtexts(SampleRender* g_pRender, std::vector<std::string> tasks, int8_t task_id) {
-    std::string task_name = tasks[task_id];
-    g_pRender->drawString("Task List: ", 1925, 40, 0.2, 0.4, 1);
-    for (int x = 1940, y = 70, i = 0; i < tasks.size(); ++i, y += 30) {
-        std::string text = "[" + std::to_string(i + 1) + "] " + tasks[i];
-        if (i == task_id)
-            g_pRender->drawString(text.c_str(), x, y, 1, 1., 0);
-        else
-            g_pRender->drawString(text.c_str(), x, y, 0.2, 0.4, 1);
-    }
-    return true;
-}
-
 static bool receiving_rendering_opengl(int camera_idx) {
 
     const int8_t factor = 3; // can avoid signal aliasing ???? I guess.
@@ -108,7 +93,7 @@ static bool receiving_rendering_opengl(int camera_idx) {
     s_bDepth_IRFrameOK &= get_a200_frame(camera_idx, nullptr, s_depthImages[0], s_irImages[0]);
     s_bColorFrameOK &= get_a200_frame(camera_idx, s_colorImages[0], nullptr, nullptr);
 
-    SampleRender *g_pRender = g_pRenders[camera_idx];
+    SampleRender * g_pRender = g_pRenders[camera_idx];
 
     if (s_bColorFrameOK && s_bDepth_IRFrameOK) {
 
@@ -128,20 +113,9 @@ static bool receiving_rendering_opengl(int camera_idx) {
         // draw IR
         g_pRender->draw((uint8_t *) s_irImages[0], g_width * g_height * 3, hint);
 
-//            if (g_bSave) {
-//                save((uint16_t *) pCamFrame->pData, s_colorImages[k], pCamFrame->size, pCamFrame->width, pCamFrame->height,
-//                     task_name + "_UVC_frame" + "_camera[" + std::to_string(k) + "]" + std::to_string(n_frames));
-//                save((uint16_t *) imiFrame->pData, s_depthImages[k], imiFrame->size, imiFrame->width, imiFrame->height,
-//                     task_name + "_Depth_frame" + "_camera[" + std::to_string(k) + "]" + std::to_string(n_frames));
-//                save((uint16_t *) imiFrame->pData + nFrameSize, s_irImages[k], imiFrame->size, imiFrame->width,
-//                     imiFrame->height, task_name + "_IR_frame" + "_camera[" + std::to_string(k) + "]" + std::to_string(n_frames));
-//
-//                n_frames -= 1;
-//                if (n_frames == 0) {
-//                    g_bSave = false;
-//                    n_frames = n_frames_sampling;
-//                }
-//            }
+        if (g_bSave) {
+            g_bSave = save_a200_frame(s_depthImages[0], tasks[task_id], "name", camera_idx, g_bSave);
+        }
         drawtexts(g_pRender, tasks, task_id);
 //        g_pRender->drawCursorXYZValue(&imiFrame[0]);
     }
@@ -326,7 +300,6 @@ void hotkeys(uiohook_event * const event) {
 }
 
 void keyboardIO_thread() {
-    printf("\nthis is keyboard threading\n");
 
     keyboard_monitor(hotkeys);
 }

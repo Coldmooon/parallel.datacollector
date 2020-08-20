@@ -11,6 +11,7 @@
 #include <vector>
 
 #include "util/util.h"
+#include "util/VCLab_utils.h"
 #include "cameras/a200.imi/include/ImiNect.h"
 #include "cameras/a200.imi/include/ImiCamera.h"
 #include "cameras/a200.imi/include/ImiCameraPrivate.h"
@@ -25,6 +26,10 @@ ImiCameraHandle * g_cameraDevice = nullptr;
 
 // stream handles
 ImiStreamHandle * g_streams = nullptr;
+
+// Frame data address
+ImiImageFrame *imiFrame = nullptr;
+ImiCameraFrame *pCamFrame = nullptr;
 
 bool g_bisPortraitDevice = false;
 
@@ -319,7 +324,6 @@ bool get_colorDepthIR(ImiStreamHandle g_DepthIR_streams, ImiCameraHandle g_camer
             return false;
         }
 
-        ImiImageFrame *imiFrame = nullptr;
         if (0 != imiReadNextFrame(g_DepthIR_streams, &imiFrame, 100)) {
             std::cerr << "imiReadNextFrame() function reported an error." << std::endl;
             return false;
@@ -327,7 +331,7 @@ bool get_colorDepthIR(ImiStreamHandle g_DepthIR_streams, ImiCameraHandle g_camer
 
         if (nullptr != imiFrame) {
             if (nullptr != s_depthImage) {
-                uint16_t *pde = (uint16_t *) imiFrame->pData;
+                uint16_t  * pde = (uint16_t *) imiFrame->pData;
                 for (uint32_t i = 0; i < framesize; ++i) {
                     s_depthImage[i].r = pde[i] >> 3;
                     s_depthImage[i].g = s_depthImage[i].r;
@@ -335,7 +339,7 @@ bool get_colorDepthIR(ImiStreamHandle g_DepthIR_streams, ImiCameraHandle g_camer
                 }
             }
             if (nullptr != s_IRImage) {
-                uint16_t *pIR = (uint16_t *) imiFrame->pData + framesize;
+                uint16_t * pIR = (uint16_t *) imiFrame->pData + framesize;
                 for (uint32_t i = 0; i < framesize; ++i) {
                     s_IRImage[i].r = pIR[i] >> 2;
                     s_IRImage[i].g = s_IRImage[i].r;
@@ -359,7 +363,6 @@ bool get_colorDepthIR(ImiStreamHandle g_DepthIR_streams, ImiCameraHandle g_camer
             return false;
         }
 
-        ImiCameraFrame *pCamFrame = nullptr;
         if (0 != imiCamReadNextFrame(g_camera_Device, &pCamFrame, 100)) {
             std::cerr << "imiCamReadNextFrame() function reported an error." << std::endl;
             return false;
@@ -381,10 +384,35 @@ bool get_colorDepthIR(ImiStreamHandle g_DepthIR_streams, ImiCameraHandle g_camer
 
 bool get_a200_frame(int8_t camera_idx, RGB888Pixel * s_colorImage, RGB888Pixel * s_depthImage, RGB888Pixel * s_IRImage) {
 
+    // To check: the following codes use two steps to capture color and Depth/IR frames individually, during which "xxxReadNextFrame" is called
+    // twice. So, this may cause the color frame and the Depth/IR frame are captured at different time stamp, leading to async problem.
     if (s_depthImage != nullptr && s_IRImage != nullptr && s_colorImage == nullptr)
         return get_colorDepthIR(g_streams[camera_idx], nullptr, nullptr, s_depthImage, s_IRImage);
     else if (s_colorImage != nullptr && s_depthImage == nullptr && s_IRImage == nullptr)
         return get_colorDepthIR(nullptr, g_cameraDevice[camera_idx], s_colorImage, nullptr, nullptr);
     else
         return false;
+}
+
+int n_frames_sampling = 10;
+int n_frames = n_frames_sampling;
+bool save_a200_frame(RGB888Pixel * s_xxxImage, std::string task_name, std::string name_prefix, int8_t k, bool g_bSave) {
+    // pCamFrame size: 640*480*3
+    // imiFrame size: 640*480*4
+    // framesize: g_width * g_height
+     save((uint16_t *) pCamFrame->pData, s_xxxImage, pCamFrame->size, pCamFrame->width, pCamFrame->height,
+          task_name + "_UVC_frame" + "_camera[" + std::to_string(k) + "]" + std::to_string(n_frames));
+     save((uint16_t *) imiFrame->pData, s_xxxImage, imiFrame->size, imiFrame->width, imiFrame->height,
+          task_name + "_Depth_frame" + "_camera[" + std::to_string(k) + "]" + std::to_string(n_frames));
+     save((uint16_t *) imiFrame->pData + g_width*g_height, s_xxxImage, imiFrame->size, imiFrame->width,
+          imiFrame->height,
+          task_name + "_IR_frame" + "_camera[" + std::to_string(k) + "]" + std::to_string(n_frames));
+
+     n_frames -= 1;
+     if (n_frames == 0) {
+         g_bSave = false;
+         n_frames = n_frames_sampling;
+     }
+
+    return g_bSave;
 }

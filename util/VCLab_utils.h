@@ -61,5 +61,6 @@ void save(uint16_t* pdata, RGB888Pixel * s_xxxImage, uint32_t size, int32_t widt
 // --------------- task assign -------------------
 std::vector<std::string> load_tasks(std::string path);
 bool parse_cameras(const std::string & args, std::vector<int8_t> & cameras);
+bool drawtexts(SampleRender* g_pRender, std::vector<std::string> tasks, int8_t task_id);
 
 #endif //UNTITLED_VCLAB_UTILS_H

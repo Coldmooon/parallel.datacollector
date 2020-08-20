@@ -101,11 +101,10 @@ int32_t saveToBMP(const char* bmpImagePath, const uint8_t* pframe, int width, in
 }
 
 void save(uint16_t* pdata, RGB888Pixel * s_xxxImage, uint32_t size, int32_t width, int32_t height, std::string name_prefix) {
-    std::string raw_name = name_prefix + ".raw";
-    std::string visual_name = name_prefix + ".bmp";
-    bool isUVC = std::regex_match(name_prefix, std::regex("(.*)(UVC)(.*)"));
 
+    bool isUVC = std::regex_match(name_prefix, std::regex("(.*)(UVC)(.*)"));
     if (!isUVC) {
+        std::string raw_name = name_prefix + ".raw";
         FILE *pFile = fopen(raw_name.c_str(), "wb");
         if (pFile) {
             fwrite(pdata, size, 1, pFile);
@@ -116,6 +115,7 @@ void save(uint16_t* pdata, RGB888Pixel * s_xxxImage, uint32_t size, int32_t widt
             printf("save one %s frame raw data to %s_reg.raw Failed !\n", name_prefix.c_str(), name_prefix.c_str());
     }
 
+    std::string visual_name = name_prefix + ".bmp";
     if (0 == saveToBMP(visual_name.c_str(), (const uint8_t *) s_xxxImage, width, height)) {
         printf("save one Depth frame to Depth_reg.bmp Success !\n");
     } else
@@ -145,4 +145,17 @@ bool parse_cameras(const std::string & args, std::vector<int8_t> & cameras) {
             exit(-1);
         }
     }
+}
+
+bool drawtexts(SampleRender* g_pRender, std::vector<std::string> tasks, int8_t task_id) {
+    std::string task_name = tasks[task_id];
+    g_pRender->drawString("Task List: ", 1924, 40, 0.2, 0.4, 1);
+    for (int x = 1939, y = 70, i = 0; i < tasks.size(); ++i, y += 30) {
+        std::string text = "[" + std::to_string(i + 0) + "] " + tasks[i];
+        if (i == task_id)
+            g_pRender->drawString(text.c_str(), x, y, 0, 1., 0);
+        else
+            g_pRender->drawString(text.c_str(), x, y, -1.2, 0.4, 1);
+    }
+    return true;
 }
