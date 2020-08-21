@@ -28,13 +28,17 @@ ImiCameraHandle * g_cameraDevice = nullptr;
 ImiStreamHandle * g_streams = nullptr;
 
 // Frame data address
-ImiImageFrame *imiFrame = nullptr;
-ImiCameraFrame *pCamFrame = nullptr;
+ImiImageFrame * imiFrame = nullptr;
+ImiCameraFrame * pCamFrame = nullptr;
 
 bool g_bisPortraitDevice = false;
 
 const int32_t g_width  = 640;
 const int32_t g_height = 480;
+
+int color_count = 1;
+int depth_count = 1;
+int ir_count = 1;
 
 int stop(int deviceCount)
 {
@@ -89,6 +93,38 @@ int Exit(int deviceCount)
     getchar();
 
     return 0;
+}
+
+void save_frames(uint16_t * pData, RGB888Pixel * s_colorImage, RGB888Pixel * s_depthImage, RGB888Pixel * s_IRImage, std::string task_name, std::string prefix, int8_t k, bool saveRaw) {
+    // pCamFrame size: 640*480*3
+    // imiFrame size: 640*480*4
+    // framesize: g_width * g_height
+    if (s_colorImage != nullptr) {
+        save_frame(pData, s_colorImage, pCamFrame->size, pCamFrame->width, pCamFrame->height,
+             task_name + prefix + "_camera[" + std::to_string(k) + "]_" + std::to_string(color_count), false);
+        color_count++;
+    }
+    if (s_depthImage != nullptr) {
+        save_frame(pData, s_depthImage, imiFrame->size, imiFrame->width, imiFrame->height,
+             task_name + prefix + "_camera[" + std::to_string(k) + "]_" + std::to_string(depth_count), saveRaw);
+        depth_count++;
+    }
+    if (s_IRImage != nullptr) {
+        save_frame(pData, s_IRImage, imiFrame->size, imiFrame->width, imiFrame->height,
+             task_name + prefix + "_camera[" + std::to_string(k) + "]_" + std::to_string(ir_count), saveRaw);
+        ir_count++;
+    }
+}
+
+bool g_bSave = false;
+void save(uint16_t * pData, RGB888Pixel * s_colorImage, RGB888Pixel * s_depthImage, RGB888Pixel * s_IRImage, int8_t camera_idx, std::string task_name, std::string modality) {
+    if(g_bSave) {
+        save_frames(pData, s_colorImage, s_depthImage, s_IRImage, task_name, modality, camera_idx, true);
+    }
+}
+
+void save_a200_frame() {
+    g_bSave = true;
 }
 
 uint32_t a200init(std::vector<int8_t> & cameras) {
@@ -315,8 +351,11 @@ bool get_depthIR(ImiStreamHandle g_DepthIR_streams, RGB888Pixel* s_depthImage, R
     }
 }
 
-bool get_colorDepthIR(ImiStreamHandle g_DepthIR_streams, ImiCameraHandle g_camera_Device, RGB888Pixel* s_colorImage, RGB888Pixel* s_depthImage, RGB888Pixel* s_IRImage=nullptr) {
+bool get_colorDepthIR(ImiStreamHandle g_DepthIR_streams, ImiCameraHandle g_camera_Device, RGB888Pixel* s_colorImage, RGB888Pixel* s_depthImage, RGB888Pixel* s_IRImage,
+                      int8_t camera_idx, std::string task_name) {
 
+    bool s_bColorFrameOK = false;
+    bool s_bDepth_IRFrameOK = false;
     if ( nullptr != g_DepthIR_streams) {
         int framesize = g_width * g_height;
         if(nullptr == s_depthImage && nullptr == s_IRImage) {
@@ -337,6 +376,7 @@ bool get_colorDepthIR(ImiStreamHandle g_DepthIR_streams, ImiCameraHandle g_camer
                     s_depthImage[i].g = s_depthImage[i].r;
                     s_depthImage[i].b = s_depthImage[i].r;
                 }
+                save(pde, nullptr, s_depthImage, nullptr, camera_idx, task_name, "_depth");
             }
             if (nullptr != s_IRImage) {
                 uint16_t * pIR = (uint16_t *) imiFrame->pData + framesize;
@@ -345,6 +385,7 @@ bool get_colorDepthIR(ImiStreamHandle g_DepthIR_streams, ImiCameraHandle g_camer
                     s_IRImage[i].g = s_IRImage[i].r;
                     s_IRImage[i].b = s_IRImage[i].r;
                 }
+                save(pIR, nullptr, nullptr, s_IRImage, camera_idx, task_name, "_IR");
             }
         }
         else {
@@ -352,9 +393,8 @@ bool get_colorDepthIR(ImiStreamHandle g_DepthIR_streams, ImiCameraHandle g_camer
             return false;
         }
 
+        s_bDepth_IRFrameOK = true;
         imiReleaseFrame(&imiFrame);
-
-        return true;
     }
 
     if (nullptr != g_camera_Device) {
@@ -368,51 +408,30 @@ bool get_colorDepthIR(ImiStreamHandle g_DepthIR_streams, ImiCameraHandle g_camer
             return false;
         }
 
-        if (nullptr != pCamFrame)
+        if (nullptr != pCamFrame) {
             memcpy((void *) s_colorImage, (const void *) pCamFrame->pData, pCamFrame->size);
+            save(nullptr, s_colorImage, nullptr, nullptr, camera_idx, task_name, "_rgb");
+        }
         else {
             std::cerr << "Failed to receive the next frame in imiCamReadNextFrame() function." << std::endl;
             return false;
         }
 
+        s_bColorFrameOK = true;
         imiCamReleaseFrame(&pCamFrame);
-        return true;
     }
 
-    return false;
+    g_bSave = false;
+    return s_bColorFrameOK & s_bDepth_IRFrameOK;
 }
 
-bool get_a200_frame(int8_t camera_idx, RGB888Pixel * s_colorImage, RGB888Pixel * s_depthImage, RGB888Pixel * s_IRImage) {
+bool get_a200_frame(int8_t winId, int camera_idx, std::string task_name, RGB888Pixel * s_colorImage, RGB888Pixel * s_depthImage, RGB888Pixel * s_IRImage) {
 
-    // To check: the following codes use two steps to capture color and Depth/IR frames individually, during which "xxxReadNextFrame" is called
-    // twice. So, this may cause the color frame and the Depth/IR frame are captured at different time stamp, leading to async problem.
-    if (s_depthImage != nullptr && s_IRImage != nullptr && s_colorImage == nullptr)
-        return get_colorDepthIR(g_streams[camera_idx], nullptr, nullptr, s_depthImage, s_IRImage);
-    else if (s_colorImage != nullptr && s_depthImage == nullptr && s_IRImage == nullptr)
-        return get_colorDepthIR(nullptr, g_cameraDevice[camera_idx], s_colorImage, nullptr, nullptr);
+    // To check: if the following codes use two steps to capture color and Depth/IR frames individually, "xxxReadNextFrame" will be called
+    // twice. In this case, the color frame and the Depth/IR frame may be captured at different time stamp, leading to async problem.
+    if (s_depthImage != nullptr && s_IRImage != nullptr && s_colorImage != nullptr)
+        return get_colorDepthIR(g_streams[winId], g_cameraDevice[winId], s_colorImage, s_depthImage, s_IRImage, camera_idx, task_name);
     else
         return false;
 }
 
-int n_frames_sampling = 10;
-int n_frames = n_frames_sampling;
-bool save_a200_frame(RGB888Pixel * s_xxxImage, std::string task_name, std::string name_prefix, int8_t k, bool g_bSave) {
-    // pCamFrame size: 640*480*3
-    // imiFrame size: 640*480*4
-    // framesize: g_width * g_height
-     save((uint16_t *) pCamFrame->pData, s_xxxImage, pCamFrame->size, pCamFrame->width, pCamFrame->height,
-          task_name + "_UVC_frame" + "_camera[" + std::to_string(k) + "]" + std::to_string(n_frames));
-     save((uint16_t *) imiFrame->pData, s_xxxImage, imiFrame->size, imiFrame->width, imiFrame->height,
-          task_name + "_Depth_frame" + "_camera[" + std::to_string(k) + "]" + std::to_string(n_frames));
-     save((uint16_t *) imiFrame->pData + g_width*g_height, s_xxxImage, imiFrame->size, imiFrame->width,
-          imiFrame->height,
-          task_name + "_IR_frame" + "_camera[" + std::to_string(k) + "]" + std::to_string(n_frames));
-
-     n_frames -= 1;
-     if (n_frames == 0) {
-         g_bSave = false;
-         n_frames = n_frames_sampling;
-     }
-
-    return g_bSave;
-}

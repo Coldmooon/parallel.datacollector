@@ -47,11 +47,10 @@ bool g_bNeedFrameSync = false;
 
 // tasks
 int8_t task_id = 0;
-bool g_bSave = false;
 std::vector<std::string> tasks;
 
 // -----------------------------------------------------------------------------
-static bool receiving_rendering_opengl(int camera_idx) {
+static bool receiving_rendering_opengl(int winID) {
 
     const int8_t factor = 3; // can avoid signal aliasing ???? I guess.
     const int resolution = g_width * g_height;
@@ -87,16 +86,12 @@ static bool receiving_rendering_opengl(int camera_idx) {
 //    }
     // --------------------------------------- done ------------------------------------------------------
 
-    bool s_bColorFrameOK = true; // don't declare it a static variable, or the whole streams will be dropped once some frame is lost.
-    bool s_bDepth_IRFrameOK = true; // don't declare it a static variable, or the whole streams will be dropped once some frame is lost.
+    // don't declare it a static variable, or the whole streams will be dropped once some frame is lost.
+    // camera_idx is actually the windowID.
+    SampleRender * g_pRender = g_pRenders[winID];
+    bool s_FrameOK = get_a200_frame(winID, g_pRender->m_camera_id, tasks[task_id], s_colorImages[0], s_depthImages[0], s_irImages[0]);
 
-    s_bDepth_IRFrameOK = get_a200_frame(camera_idx, nullptr, s_depthImages[0], s_irImages[0]);
-    s_bColorFrameOK = get_a200_frame(camera_idx, s_colorImages[0], nullptr, nullptr);
-
-    SampleRender * g_pRender = g_pRenders[camera_idx];
-
-    if (s_bColorFrameOK && s_bDepth_IRFrameOK) {
-
+    if (s_FrameOK) {
         WindowHint hint(0, 0, g_width, g_height);
 
         // draw Color
@@ -113,9 +108,6 @@ static bool receiving_rendering_opengl(int camera_idx) {
         // draw IR
         g_pRender->draw((uint8_t *) s_irImages[0], g_width * g_height * 3, hint);
 
-        if (g_bSave) {
-            g_bSave = save_a200_frame(s_depthImages[0], tasks[task_id], "name", camera_idx, g_bSave);
-        }
         drawtexts(g_pRender, tasks, task_id);
 //        g_pRender->drawCursorXYZValue(&imiFrame[0]);
     }
@@ -243,7 +235,7 @@ void hotkeys(uiohook_event * const event) {
                 }
             }
             else if (event->data.keyboard.keycode == VC_S)
-                g_bSave = true;
+                save_a200_frame();
             else if (event->data.keyboard.keycode == VC_UP) {
                 task_id--;
                 if (task_id < 0) task_id = tasks.size() - 1;

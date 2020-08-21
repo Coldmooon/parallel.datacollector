@@ -37,7 +37,7 @@ std::string load_file(std::string path) {
 }
 
 
-int32_t saveToBMP(const char* bmpImagePath, const uint8_t* pframe, int width, int height)
+int32_t save_to_BMP(const char* bmpImagePath, const uint8_t* pframe, int width, int height)
 {
     BMPFILEHEADER_T bmfh; // bitmap file header
     BMPINFOHEADER_T bmih; // bitmap info header (windows)
@@ -100,10 +100,10 @@ int32_t saveToBMP(const char* bmpImagePath, const uint8_t* pframe, int width, in
     return 0;
 }
 
-void save(uint16_t* pdata, RGB888Pixel * s_xxxImage, uint32_t size, int32_t width, int32_t height, std::string name_prefix) {
+void save_frame(const uint16_t * pdata, const RGB888Pixel * s_xxxImage, uint32_t size, int32_t width, int32_t height, std::string name_prefix, bool saveRaw) {
 
-    bool isUVC = std::regex_match(name_prefix, std::regex("(.*)(UVC)(.*)"));
-    if (!isUVC) {
+    // bool isUVC = std::regex_match(name_prefix, std::regex("(.*)(UVC)(.*)"));
+    if (saveRaw) {
         std::string raw_name = name_prefix + ".raw";
         FILE *pFile = fopen(raw_name.c_str(), "wb");
         if (pFile) {
@@ -116,7 +116,7 @@ void save(uint16_t* pdata, RGB888Pixel * s_xxxImage, uint32_t size, int32_t widt
     }
 
     std::string visual_name = name_prefix + ".bmp";
-    if (0 == saveToBMP(visual_name.c_str(), (const uint8_t *) s_xxxImage, width, height)) {
+    if (0 == save_to_BMP(visual_name.c_str(), (const uint8_t *) s_xxxImage, width, height)) {
         printf("save one Depth frame to Depth_reg.bmp Success !\n");
     } else
         printf("save one Depth frame to Depth_reg.bmp Failed !\n");

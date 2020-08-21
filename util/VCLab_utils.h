@@ -56,8 +56,8 @@ typedef struct tagRGBPixel
     unsigned char b;
 } RGBPixel;
 
-int32_t saveToBMP(const char* bmpImagePath, const uint8_t* pframe, int width, int height);
-void save(uint16_t* pdata, RGB888Pixel * s_xxxImage, uint32_t size, int32_t width, int32_t height, std::string name_prefix);
+int32_t save_to_BMP(const char* bmpImagePath, const uint8_t* pframe, int width, int height);
+void save_frame(const uint16_t * pdata, const RGB888Pixel * s_xxxImage, uint32_t size, int32_t width, int32_t height, std::string name_prefix, bool saveRaw);
 // --------------- task assign -------------------
 std::vector<std::string> load_tasks(std::string path);
 bool parse_cameras(const std::string & args, std::vector<int8_t> & cameras);
