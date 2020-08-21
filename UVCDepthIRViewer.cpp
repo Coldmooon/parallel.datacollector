@@ -90,8 +90,8 @@ static bool receiving_rendering_opengl(int camera_idx) {
     bool s_bColorFrameOK = true; // don't declare it a static variable, or the whole streams will be dropped once some frame is lost.
     bool s_bDepth_IRFrameOK = true; // don't declare it a static variable, or the whole streams will be dropped once some frame is lost.
 
-    s_bDepth_IRFrameOK &= get_a200_frame(camera_idx, nullptr, s_depthImages[0], s_irImages[0]);
-    s_bColorFrameOK &= get_a200_frame(camera_idx, s_colorImages[0], nullptr, nullptr);
+    s_bDepth_IRFrameOK = get_a200_frame(camera_idx, nullptr, s_depthImages[0], s_irImages[0]);
+    s_bColorFrameOK = get_a200_frame(camera_idx, s_colorImages[0], nullptr, nullptr);
 
     SampleRender * g_pRender = g_pRenders[camera_idx];
 
