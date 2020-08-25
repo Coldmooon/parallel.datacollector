@@ -29,3 +29,12 @@ The program can save a frame with a specific `label` for classification tasks. T
 - 's': save 10 frames with label
 - 'ESC': quit the program
 ```
+
+## Issues
+```
+error while loading shared libraries: libxxxx.so: cannot open shared object file: No such file or directory
+
+PS: The libxxxx.so is a camera's library.
+```
+This error could appear at the running stage. This is because the `dynamic loader` couldn't find the `libxxxx.so` in some standard paths, `e.g., /usr/local/lib`. `Library Search Path` only tells `dynamic linker` where to get library to link executable to. But it doesn't tell `dynamic loader` where to search for the library when the executable is started. You can run `ldd the_executable` to find out where `dynamic loader` will look for `libxxxx.so`. To solve this, put `libxxxx.so` in the standard paths or run the executable with `LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/path/to/libxxxx.so`. 
+
