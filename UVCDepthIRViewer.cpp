@@ -48,6 +48,7 @@ bool g_bNeedFrameSync = false;
 // tasks
 int8_t task_id = 0;
 std::vector<std::string> tasks;
+std::string person_name = "unknown";
 
 // -----------------------------------------------------------------------------
 static bool receiving_rendering_opengl(int winID) {
@@ -89,7 +90,7 @@ static bool receiving_rendering_opengl(int winID) {
     // don't declare it a static variable, or the whole streams will be dropped once some frame is lost.
     // camera_idx is actually the windowID.
     SampleRender * g_pRender = g_pRenders[winID];
-    bool s_FrameOK = get_a200_frame(winID, g_pRender->m_camera_id, tasks[task_id], s_colorImages[0], s_depthImages[0], s_irImages[0]);
+    bool s_FrameOK = get_a200_frame(winID, g_pRender->m_camera_id, tasks[task_id], person_name, s_colorImages[0], s_depthImages[0], s_irImages[0]);
 
     if (s_FrameOK) {
         WindowHint hint(0, 0, g_width, g_height);
@@ -236,6 +237,13 @@ void hotkeys(uiohook_event * const event) {
             }
             else if (event->data.keyboard.keycode == VC_S)
                 save_a200_frame();
+            else if (event->data.keyboard.keycode == VC_P) {
+                // not thread safe because keyboardIO thread is modifying the person_name while the cameraID is reading the person_name.
+//                std::cout << "Please input the person name: \n" << std::endl;
+//                std::string newPersong;
+//                getline(std::cin, newPersong);
+//                person_name = newPersong;
+            }
             else if (event->data.keyboard.keycode == VC_UP) {
                 task_id--;
                 if (task_id < 0) task_id = tasks.size() - 1;
