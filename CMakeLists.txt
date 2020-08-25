@@ -17,15 +17,15 @@ include_directories(./include)
 include_directories(cameras/)
 
 find_package(Threads REQUIRED)
+# enable this if using Opencv.
+find_package(OpenCV REQUIRED)
 
 # define variable of source files for the main target.
 set(SOURCE_FILES UVCDepthIRViewer.cpp util/util.cpp UI/opengl/Render.cpp util/VCLab_utils.cpp util/VCLab_utils.h include/keyboard.hpp modules/a200.hpp)
 
-# enable this if using Opencv.
-# find_package(OpenCV REQUIRED)
-
 # define targets for the project.
 add_executable(UVCDepthIRViewer ${SOURCE_FILES})
+add_executable(T3S include/keyboard.hpp T3S.cpp)
 
 # complile .cpp source files as libraries (optional).
 # add_library(librender Utill.cpp Render.cpp)
@@ -38,8 +38,12 @@ find_library(GLUT glut /usr/local/lib/)
 find_library(X11 X11 /usr/lib/)
 find_library(UIOHOOK uiohook /usr/local/lib/)
 
+find_library(SIMPLE Simple cameras/T3S.infiray/libs)
+find_library(THER thermometry cameras/T3S.infiray/libs)
+
 # define library files variable for resuing.
 set(LIB_FILES ${IMI_NECT} ${IMI_CAMERA} ${GL} ${GLUT})
 
 # link the targets above to the libraries.
 target_link_libraries(UVCDepthIRViewer ${LIB_FILES} Threads::Threads ${X11} ${UIOHOOK})
+target_link_libraries(T3S ${OpenCV_LIBS} ${SIMPLE} ${THER} ${UIOHOOK})
