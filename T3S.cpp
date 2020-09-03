@@ -22,11 +22,20 @@
 #include <opencv2/highgui/highgui.hpp>
 #include <opencv2/imgproc/imgproc.hpp>
 
-
 #include <iostream>
 
 #include "cameras/T3S.infiray/include/thermometry.h"
 #include "cameras/T3S.infiray/include/SimplePictureProcessing.h"
+
+// Utils
+#include "util/VCLab_utils.h"
+
+// IO
+#include "keyboard.hpp"
+#include <inttypes.h>
+#include <uiohook.h>
+#include <wchar.h>
+#include <thread>
 
 using namespace xtherm;
 unsigned char *buffer;                          //buffers 指针记录缓冲帧
@@ -57,7 +66,17 @@ int v4l2_control(int);                  //控制
 bool needRefreshTable;
 int delayy;
 
-int main() {
+int8_t task_id = 0;
+std::vector<std::string> tasks;
+std::string person_name = "unknown";
+
+bool b_gSaved = false;
+int save_count = 0;
+void save_t3s_frame() {
+    b_gSaved = true;
+};
+
+int t3s_process() {
     SimplePictureProcessing *mSimplePictureProcessing = new SimplePictureProcessing(384, 288);
     mSimplePictureProcessing->SetParameter(100, 0.5f, 0.1f, 0.1f, 1.0f, 3.5f);
     printf("first~~\n");
@@ -157,7 +176,27 @@ int main() {
         ioctl(fd, VIDIOC_QBUF, &buf);                      //在 driver 内部管理着两个 buffer queues ，一个输入队列，一个输出队列。
         //对于 capture device 来说，当输入队列中的 buffer 被塞满数据以后会自动变为输出队列，
 //        printf("VIDIOC_QBUF~~\n");                                 //等待调用 VIDIOC_DQBUF 将数据进行处理以后重新调用 VIDIOC_QBUF 将 buffer 重新放进输入队列.
-        if ((cvWaitKey(1) & 255) == 27) exit(0);
+//        if ((cvWaitKey(1) & 255) == 27) exit(0);
+        char key = cvWaitKey(1);
+        if( key == 27 )
+            exit(0);
+//        switch(key)
+//        {
+//            case 's':
+//                std::cout << "save a frame." << std::endl;
+//                cv::imwrite("test.jpg", rgbImg);
+//                break;
+//            default:
+//                ;
+//        }
+        if (b_gSaved) {
+            std::cout << "save a frame." << std::endl;
+            std::string filename = tasks[task_id] + "_" + person_name + "_" + std::to_string(save_count) + "_t3s" + ".jpg";
+            cv::imwrite(filename, rgbImg);
+            save_count++;
+            b_gSaved = false;
+        }
+
         t = (double) cvGetTickCount() - t;
         printf("used time is %gms\n", (t / (cvGetTickFrequency() * 1000)));
     }
@@ -305,3 +344,119 @@ int v4l2_control(int value) {
     return TRUE;
 }
 
+// keyboard function for UIOHOOK library
+void hotkeys(uiohook_event * const event) {
+    char buffer[256] = { 0 };
+    size_t length = snprintf(buffer, sizeof(buffer),
+                             "id=%i,when=%" PRIu64 ",mask=0x%X",
+                             event->type, event->time, event->mask);
+
+    switch (event->type) {
+
+        case EVENT_KEY_PRESSED:
+            // If the escape key is pressed, naturally terminate the program.
+            if (event->data.keyboard.keycode == VC_ESCAPE) {
+                int status = hook_stop();
+                switch (status) {
+                    // System level errors.
+                    case UIOHOOK_ERROR_OUT_OF_MEMORY:
+                        logger_proc(LOG_LEVEL_ERROR, "Failed to allocate memory. (%#X)", status);
+                        break;
+
+                    case UIOHOOK_ERROR_X_RECORD_GET_CONTEXT:
+                        // NOTE This is the only platform specific error that occurs on hook_stop().
+                        logger_proc(LOG_LEVEL_ERROR, "Failed to get XRecord context. (%#X)", status);
+                        break;
+
+                        // Default error.
+                    case UIOHOOK_FAILURE:
+                    default:
+                        logger_proc(LOG_LEVEL_ERROR, "An unknown hook error occurred. (%#X)", status);
+                        exit(0);
+                }
+            }
+            else if (event->data.keyboard.keycode == VC_S)
+                save_t3s_frame();
+            else if (event->data.keyboard.keycode == VC_P) {
+                // not thread safe because keyboardIO thread is modifying the person_name while the cameraID is reading the person_name.
+//                std::cout << "Please input the person name: \n" << std::endl;
+//                std::string newPersong;
+//                getline(std::cin, newPersong);
+//                person_name = newPersong;
+            }
+            else if (event->data.keyboard.keycode == VC_UP) {
+                task_id--;
+                if (task_id < 0) task_id = tasks.size() - 1;
+            }
+            else if (event->data.keyboard.keycode == VC_DOWN) {
+                task_id++;
+                if (task_id >= tasks.size()) task_id = 0;
+            }
+            else if (event->data.keyboard.keycode >= VC_1 && event->data.keyboard.keycode <= VC_9) {
+                int tmp = task_id;
+                task_id = event->data.keyboard.keycode - VC_1;
+                if (task_id < 0 || task_id >= tasks.size()) {
+                    printf("ERROR: Please choose the task ID from %d to %d \n", 1, tasks.size());
+                    task_id = tmp;
+                }
+            }
+
+        case EVENT_KEY_RELEASED:
+            snprintf(buffer + length, sizeof(buffer) - length,
+                     ",keycode=%u,rawcode=0x%X",
+                     event->data.keyboard.keycode, event->data.keyboard.rawcode);
+            break;
+
+        case EVENT_KEY_TYPED:
+            snprintf(buffer + length, sizeof(buffer) - length,
+                     ",keychar=%lc,rawcode=%u",
+                     (wint_t) event->data.keyboard.keychar,
+                     event->data.keyboard.rawcode);
+            break;
+
+        case EVENT_MOUSE_PRESSED:
+        case EVENT_MOUSE_RELEASED:
+        case EVENT_MOUSE_CLICKED:
+        case EVENT_MOUSE_MOVED:
+        case EVENT_MOUSE_DRAGGED:
+            snprintf(buffer + length, sizeof(buffer) - length,
+                     ",x=%i,y=%i,button=%i,clicks=%i",
+                     event->data.mouse.x, event->data.mouse.y,
+                     event->data.mouse.button, event->data.mouse.clicks);
+            break;
+
+        case EVENT_MOUSE_WHEEL:
+            snprintf(buffer + length, sizeof(buffer) - length,
+                     ",type=%i,amount=%i,rotation=%i",
+                     event->data.wheel.type, event->data.wheel.amount,
+                     event->data.wheel.rotation);
+            break;
+
+        default:
+            break;
+    }
+
+//    fprintf(stdout, "%s\n",     buffer);　// keycode debug
+}
+
+void keyboardIO_thread() {
+
+    keyboard_monitor(hotkeys);
+}
+
+void cameraIO_thread(int argc, char** argv) {
+    t3s_process();
+}
+
+int main (int argc, char** argv) {
+    tasks = load_tasks("./config.txt");
+
+    std::vector<std::thread> workers;
+    workers.push_back(std::thread(cameraIO_thread, argc, argv));
+    workers.push_back(std::thread(keyboardIO_thread));
+    for (auto &worker: workers) {
+        worker.join();
+    }
+
+    return 0;
+}
