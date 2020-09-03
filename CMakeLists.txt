@@ -1,9 +1,10 @@
-cmake_minimum_required(VERSION 3.15)
+cmake_minimum_required(VERSION 3.17)
 project(vclab.datacollector.a200)
 
-set(CMAKE_CXX_STANDARD 14)
+set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_PREFIX_PATH "/home/coldmoon/Dependencies/")
 set(THREADS_PREFER_PTHREAD_FLAG ON)
+set(CMAKE_VERBOSE_MAKEFILE on)
 
 # output complied libraries to the given directory.
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/buildlibs)
@@ -25,7 +26,7 @@ set(SOURCE_FILES UVCDepthIRViewer.cpp util/util.cpp UI/opengl/Render.cpp util/VC
 
 # define targets for the project.
 add_executable(UVCDepthIRViewer ${SOURCE_FILES})
-add_executable(T3S include/keyboard.hpp T3S.cpp)
+add_executable(T3S T3S.cpp include/keyboard.hpp util/VCLab_utils.cpp)
 
 # complile .cpp source files as libraries (optional).
 # add_library(librender Utill.cpp Render.cpp)
@@ -45,5 +46,5 @@ find_library(THER thermometry cameras/T3S.infiray/libs)
 set(LIB_FILES ${IMI_NECT} ${IMI_CAMERA} ${GL} ${GLUT})
 
 # link the targets above to the libraries.
-target_link_libraries(UVCDepthIRViewer ${LIB_FILES} Threads::Threads ${X11} ${UIOHOOK})
-target_link_libraries(T3S ${OpenCV_LIBS} ${SIMPLE} ${THER} ${UIOHOOK})
+target_link_libraries(UVCDepthIRViewer ${LIB_FILES} Threads::Threads ${X11} ${UIOHOOK} stdc++fs /lib/x86_64-linux-gnu/libuuid.so.1)
+target_link_libraries(T3S ${OpenCV_LIBS} ${SIMPLE} ${THER} ${UIOHOOK} Threads::Threads /lib/x86_64-linux-gnu/libuuid.so.1)

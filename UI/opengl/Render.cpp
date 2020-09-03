@@ -134,10 +134,10 @@ bool SampleRender::initOpenGL(int32_t argc, char **argv)
 	glEnableClientState(GL_VERTEX_ARRAY);
 	glDisableClientState(GL_COLOR_ARRAY);
 
-	if (m_keyboard) {
-        glutKeyboardFunc(glutKeyboard);
-        glutSpecialFunc(glutKeyboard);
-	}
+//	if (m_keyboard) {
+//        glutKeyboardFunc(glutKeyboard);
+//        glutSpecialFunc(glutKeyboard);
+//	}
 //    glutPassiveMotionFunc(glutXYMouse);
 //	glutMouseFunc(glutMouse);
     glutDisplayFunc(glutDisplay);

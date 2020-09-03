@@ -20,7 +20,7 @@ void sleepMs (int32_t msecs) {
 }
 
 template <class Container>
-void split_string(const std::string& str, Container& cont) {
+void split_string(const std::string & str, Container & cont) {
     std::istringstream iss(str);
     std::copy(std::istream_iterator<std::string>(iss),
               std::istream_iterator<std::string>(),
@@ -104,7 +104,7 @@ void save_frame(const uint16_t * pdata, const RGB888Pixel * s_xxxImage, uint32_t
 
     // bool isUVC = std::regex_match(name_prefix, std::regex("(.*)(UVC)(.*)"));
     if (saveRaw) {
-        std::string raw_name = name_prefix + ".raw";
+        std::string raw_name = "./data/" + name_prefix + ".raw";
         FILE *pFile = fopen(raw_name.c_str(), "wb");
         if (pFile) {
             fwrite(pdata, size, 1, pFile);
@@ -115,7 +115,7 @@ void save_frame(const uint16_t * pdata, const RGB888Pixel * s_xxxImage, uint32_t
             printf("save one %s frame raw data to %s_reg.raw Failed !\n", name_prefix.c_str(), name_prefix.c_str());
     }
 
-    std::string visual_name = name_prefix + ".bmp";
+    std::string visual_name = "./data/" + name_prefix + ".bmp";
     if (0 == save_to_BMP(visual_name.c_str(), (const uint8_t *) s_xxxImage, width, height)) {
         printf("save one Depth frame to Depth_reg.bmp Success !\n");
     } else
@@ -159,3 +159,21 @@ bool drawtexts(SampleRender* g_pRender, std::vector<std::string> tasks, int8_t t
     }
     return true;
 }
+
+//void movefile(char const * src, char const * dst, bool create_root = true) {
+//    namespace fs = std::experimental::filesystem;
+//
+//    if (create_root)
+//        fs::create_directory(dst);
+//
+//    for(fs::path p: fs::directory_iterator(src)){
+//        fs::path dest_file = dst/p.filename();
+//
+//        if (fs::is_directory(p)) {
+//            fs::create_directory(dest_file);
+//            movefile(p.string().c_str(), dest_file.string().c_str(), false);
+//        } else {
+//            fs::rename(p, dest_file);
+//        }
+//    }
+//}

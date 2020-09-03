@@ -16,6 +16,7 @@
 #include <GL/freeglut.h>
 #include <memory>
 #include <thread>
+#include <filesystem>
 
 // Camera modules
 #include "modules/a200.hpp"
@@ -48,7 +49,8 @@ bool g_bNeedFrameSync = false;
 // tasks
 int8_t task_id = 0;
 std::vector<std::string> tasks;
-std::string person_name = "unknown";
+
+std::string p_name = "";
 
 // -----------------------------------------------------------------------------
 static bool receiving_rendering_opengl(int winID) {
@@ -90,7 +92,7 @@ static bool receiving_rendering_opengl(int winID) {
     // don't declare it a static variable, or the whole streams will be dropped once some frame is lost.
     // camera_idx is actually the windowID.
     SampleRender * g_pRender = g_pRenders[winID];
-    bool s_FrameOK = get_a200_frame(winID, g_pRender->m_camera_id, tasks[task_id], person_name, s_colorImages[0], s_depthImages[0], s_irImages[0]);
+    bool s_FrameOK = get_a200_frame(winID, g_pRender->m_camera_id, tasks[task_id], s_colorImages[0], s_depthImages[0], s_irImages[0]);
 
     if (s_FrameOK) {
         WindowHint hint(0, 0, g_width, g_height);
@@ -111,6 +113,7 @@ static bool receiving_rendering_opengl(int winID) {
 
         drawtexts(g_pRender, tasks, task_id);
 //        g_pRender->drawCursorXYZValue(&imiFrame[0]);
+        g_pRender->drawString(p_name.c_str(), 1939, 300, -1.2, 0.4, 1);
     }
     else
         std::cerr << "\nLost a frame !" << std::endl;
@@ -235,36 +238,44 @@ void hotkeys(uiohook_event * const event) {
                         exit(0);
                 }
             }
-            else if (event->data.keyboard.keycode == VC_S)
-                save_a200_frame();
-            else if (event->data.keyboard.keycode == VC_P) {
-                // not thread safe because keyboardIO thread is modifying the person_name while the cameraID is reading the person_name.
-//                std::cout << "Please input the person name: \n" << std::endl;
-//                std::string newPersong;
-//                getline(std::cin, newPersong);
-//                person_name = newPersong;
-            }
-            else if (event->data.keyboard.keycode == VC_UP) {
-                task_id--;
-                if (task_id < 0) task_id = tasks.size() - 1;
-            }
-            else if (event->data.keyboard.keycode == VC_DOWN) {
-                task_id++;
-                if (task_id >= tasks.size()) task_id = 0;
-            }
-            else if (event->data.keyboard.keycode >= VC_1 && event->data.keyboard.keycode <= VC_9) {
-                int tmp = task_id;
-                task_id = event->data.keyboard.keycode - VC_1;
-                if (task_id < 0 || task_id >= tasks.size()) {
-                    printf("ERROR: Please choose the task ID from %d to %d \n", 1, tasks.size());
-                    task_id = tmp;
-                }
-            }
+            break;
 
         case EVENT_KEY_RELEASED:
             snprintf(buffer + length, sizeof(buffer) - length,
                      ",keycode=%u,rawcode=0x%X",
                      event->data.keyboard.keycode, event->data.keyboard.rawcode);
+            switch (event->data.keyboard.keycode) {
+                case VC_F1:
+                    p_name.clear();
+                    break;
+                case VC_F2:
+                    save_a200_frame();
+                    break;
+                case VC_F3:
+                    if (cameras[0] == 0) {
+                        if (!p_name.empty()) {
+                            std::filesystem::create_directories("Photos");
+                            std::filesystem::rename("data", "Photos/" + p_name);
+                            std::filesystem::create_directories("data");
+                        }
+                        else
+                            std::cout << "Please input Person Name." << std::endl;
+                    }
+                    else
+                        std::cout << "Only Camera 0 is used to edit person name." << std::endl;
+                    break;
+                case VC_UP:
+                    task_id--;
+                    if (task_id < 0) task_id = tasks.size() - 1;
+                    break;
+                case VC_DOWN:
+                    task_id++;
+                    if (task_id >= tasks.size()) task_id = 0;
+                    break;
+                default:
+                    p_name += event->data.keyboard.rawcode;
+                    break;
+            }
             break;
 
         case EVENT_KEY_TYPED:
@@ -328,6 +339,7 @@ int main(int argc, char** argv)
     }
 
     tasks = load_tasks("./config.txt");
+    std::filesystem::create_directories("data");
     // Glut pipline:
     // 1. initialize the window properties --> 2. create the window --> 3. register the callback function when an event, e.g., a mouse move, occurs.
     // That is to tell GLUT which function to call back --> 4. enter the event processing loop
