@@ -233,7 +233,8 @@ void hotkeys(uiohook_event * const event) {
                         // Default error.
                     case UIOHOOK_FAILURE:
                     default:
-                        logger_proc(LOG_LEVEL_ERROR, "An unknown hook error occurred. (%#X)", status);
+                        // logger_proc(LOG_LEVEL_ERROR, "An unknown hook error occurred. (%#X)", status);
+                        logger_proc(LOG_LEVEL_ERROR, "Programme exited.", status);
                         Exit(deviceCount);
                         exit(0);
                 }
