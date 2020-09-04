@@ -46,11 +46,11 @@ std::vector<int8_t> cameras;
 // switch of frame sync
 bool g_bNeedFrameSync = false;
 
-// tasks
-int8_t task_id = 0;
-std::vector<std::string> tasks;
-
-std::string p_name = "";
+// tasks processing
+int8_t g_taskID = 0;
+std::vector<std::string> g_tasks;
+std::string g_person_name = "";
+int8_t g_angle = 0;
 
 // -----------------------------------------------------------------------------
 static bool receiving_rendering_opengl(int winID) {
@@ -92,7 +92,7 @@ static bool receiving_rendering_opengl(int winID) {
     // don't declare it a static variable, or the whole streams will be dropped once some frame is lost.
     // camera_idx is actually the windowID.
     SampleRender * g_pRender = g_pRenders[winID];
-    bool s_FrameOK = get_a200_frame(winID, g_pRender->m_camera_id, tasks[task_id], s_colorImages[0], s_depthImages[0], s_irImages[0]);
+    bool s_FrameOK = get_a200_frame(winID, g_pRender->m_camera_id, g_tasks[g_taskID], s_colorImages[0], s_depthImages[0], s_irImages[0]);
 
     if (s_FrameOK) {
         WindowHint hint(0, 0, g_width, g_height);
@@ -111,9 +111,9 @@ static bool receiving_rendering_opengl(int winID) {
         // draw IR
         g_pRender->draw((uint8_t *) s_irImages[0], g_width * g_height * 3, hint);
 
-        drawtexts(g_pRender, tasks, task_id);
+        drawtexts(g_pRender, g_tasks, g_taskID);
 //        g_pRender->drawCursorXYZValue(&imiFrame[0]);
-        g_pRender->drawString(p_name.c_str(), 1939, 300, -1.2, 0.4, 1);
+        g_pRender->drawString(g_person_name.c_str(), 1939, 300, -1.2, 0.4, 1);
     }
     else
         std::cerr << "\nLost a frame !" << std::endl;
@@ -126,18 +126,18 @@ static bool receiving_rendering_opengl(int winID) {
 template<typename T>
 void keyboardFun(T key, int32_t x, int32_t y)
 {
-    tasks = load_tasks("./config.txt");
-    int8_t tmp = task_id;
+    g_tasks = load_tasks("./config.txt");
+    int8_t tmp = g_taskID;
     bool checknumber = false;
 
     switch (key) {
         case GLUT_KEY_UP:
-            task_id++;
-            if (task_id >= tasks.size()) task_id = 0;
+            g_taskID++;
+            if (g_taskID >= g_tasks.size()) g_taskID = 0;
             break;
         case GLUT_KEY_DOWN:
-            task_id--;
-            if (task_id < 0) task_id = tasks.size() - 1;
+            g_taskID--;
+            if (g_taskID < 0) g_taskID = g_tasks.size() - 1;
             break;
         case GLUT_KEY_LEFT:
             break;
@@ -155,16 +155,16 @@ void keyboardFun(T key, int32_t x, int32_t y)
     }
 
     if (checknumber && key >= 48 && key <= 57) {
-        task_id = key - '0';
-        if (task_id < 0 || task_id >= tasks.size()) {
-            printf("ERROR: Please choose the task ID from %d to %d \n", 0, tasks.size() - 1);
-            task_id = tmp;
+        g_taskID = key - '0';
+        if (g_taskID < 0 || g_taskID >= g_tasks.size()) {
+            printf("ERROR: Please choose the task ID from %d to %d \n", 0, g_tasks.size() - 1);
+            g_taskID = tmp;
         }
     }
-    printf("Current task ID %d: %s \n", task_id, tasks[task_id].c_str());
+    printf("Current task ID %d: %s \n", g_taskID, g_tasks[g_taskID].c_str());
 }
 
-static bool assign_tasks(SampleRender* g_pRender) {
+static bool assign_g_tasks(SampleRender* g_pRender) {
     // single thread
     int win = glutGetWindow();
     if (win - 1 < 0) {std::cerr << "Got negative window ID." << std::endl; Exit(deviceCount); return false;}
@@ -183,14 +183,14 @@ static bool assign_tasks(SampleRender* g_pRender) {
     return true;
 }
 
-void register_tasks(int argc, char** argv) {
+void register_g_tasks(int argc, char** argv) {
     for (int i = 0; i < deviceCount; ++i){
         std::string window_name(argv[i + 1]);
 //        window_name.push_back(argv[i + 1]);
         SampleRender * pRender = new SampleRender(("Camera " + window_name).c_str(), g_width * 3 + 300, g_height + 10);
         pRender->m_camera_id = cameras[i];
 
-        pRender->setDataCallback_multithread(assign_tasks); // set display callback function
+        pRender->setDataCallback_multithread(assign_g_tasks); // set display callback function
 //        pRender->setKeyCallback(keyboardFun<unsigned char>); // set normal and functional keys callback
         pRender->init(argc, argv); // initialize OpenGL and create a window
 
@@ -246,16 +246,16 @@ void hotkeys(uiohook_event * const event) {
                      event->data.keyboard.keycode, event->data.keyboard.rawcode);
             switch (event->data.keyboard.keycode) {
                 case VC_F1:
-                    p_name.clear();
+                    g_person_name.clear();
                     break;
                 case VC_F2:
                     save_a200_frame();
                     break;
                 case VC_F3:
                     if (cameras[0] == 0) {
-                        if (!p_name.empty()) {
+                        if (!g_person_name.empty()) {
                             std::filesystem::create_directories("Photos");
-                            std::filesystem::rename("data", "Photos/" + p_name);
+                            std::filesystem::rename("data", "Photos/" + g_person_name);
                             std::filesystem::create_directories("data");
                         }
                         else
@@ -264,16 +264,23 @@ void hotkeys(uiohook_event * const event) {
                     else
                         std::cout << "Only Camera 0 is used to edit person name." << std::endl;
                     break;
+                case VC_F5:
+                    g_taskID = 0;
+                    break;
                 case VC_UP:
-                    task_id--;
-                    if (task_id < 0) task_id = tasks.size() - 1;
+                    g_taskID--;
+                    if (g_taskID < 0) g_taskID = g_tasks.size() - 1;
                     break;
                 case VC_DOWN:
-                    task_id++;
-                    if (task_id >= tasks.size()) task_id = 0;
+                    g_taskID++;
+                    if (g_taskID >= g_tasks.size()) g_taskID = 0;
+                    break;
+                case VC_BACKSPACE:
+                    if(!g_person_name.empty())
+                        g_person_name.pop_back();
                     break;
                 default:
-                    p_name += event->data.keyboard.rawcode;
+                    g_person_name += event->data.keyboard.rawcode;
                     break;
             }
             break;
@@ -319,7 +326,7 @@ void cameraIO_thread(int argc, char** argv) {
     XInitThreads();
     glutInit(&argc, argv);
 
-    register_tasks(argc, argv);
+    register_g_tasks(argc, argv);
 
 //    glutIdleFunc(idle);
     glutMainLoop();
@@ -338,7 +345,7 @@ int main(int argc, char** argv)
         getchar();
     }
 
-    tasks = load_tasks("./config.txt");
+    g_tasks = load_tasks("./config.txt");
     std::filesystem::create_directories("data");
     // Glut pipline:
     // 1. initialize the window properties --> 2. create the window --> 3. register the callback function when an event, e.g., a mouse move, occurs.
