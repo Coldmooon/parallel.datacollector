@@ -92,7 +92,8 @@ static bool receiving_rendering_opengl(int winID) {
     // don't declare it a static variable, or the whole streams will be dropped once some frame is lost.
     // camera_idx is actually the windowID.
     SampleRender * g_pRender = g_pRenders[winID];
-    bool s_FrameOK = get_a200_frame(winID, g_pRender->m_camera_id, g_tasks[g_taskID], s_colorImages[0], s_depthImages[0], s_irImages[0]);
+    bool s_FrameOK = get_a200_frame(winID, g_pRender->m_camera_id, s_colorImages[0], s_depthImages[0], s_irImages[0],
+                                    g_tasks[g_taskID] + "_" + g_person_name + "_angle" + std::to_string(g_angle));
 
     if (s_FrameOK) {
         WindowHint hint(0, 0, g_width, g_height);
@@ -114,6 +115,7 @@ static bool receiving_rendering_opengl(int winID) {
         drawtexts(g_pRender, g_tasks, g_taskID);
 //        g_pRender->drawCursorXYZValue(&imiFrame[0]);
         g_pRender->drawString(g_person_name.c_str(), 1939, 300, -1.2, 0.4, 1);
+        g_pRender->drawString(("Angle: " + std::to_string(g_angle)).c_str(), 1939, 350, -1.2, 0.4, 1);
     }
     else
         std::cerr << "\nLost a frame !" << std::endl;
@@ -122,9 +124,145 @@ static bool receiving_rendering_opengl(int winID) {
     return true;
 }
 
+// keyboard function for UIOHOOK library
+void hotkeys(uiohook_event * const event) {
+    char buffer[256] = { 0 };
+    size_t length = snprintf(buffer, sizeof(buffer),
+                             "id=%i,when=%" PRIu64 ",mask=0x%X",
+                             event->type, event->time, event->mask);
+
+    switch (event->type) {
+
+        case EVENT_KEY_PRESSED:
+            // If the escape key is pressed, naturally terminate the program.
+            if (event->data.keyboard.keycode == VC_ESCAPE) {
+                int status = hook_stop();
+                switch (status) {
+                    // System level errors.
+                    case UIOHOOK_ERROR_OUT_OF_MEMORY:
+                        logger_proc(LOG_LEVEL_ERROR, "Failed to allocate memory. (%#X)", status);
+                        break;
+
+                    case UIOHOOK_ERROR_X_RECORD_GET_CONTEXT:
+                        // NOTE This is the only platform specific error that occurs on hook_stop().
+                        logger_proc(LOG_LEVEL_ERROR, "Failed to get XRecord context. (%#X)", status);
+                        break;
+
+                        // Default error.
+                    case UIOHOOK_FAILURE:
+                    default:
+                        // logger_proc(LOG_LEVEL_ERROR, "An unknown hook error occurred. (%#X)", status);
+                        logger_proc(LOG_LEVEL_ERROR, "Programme exited.", status);
+                        Exit(deviceCount);
+                        exit(0);
+                }
+            }
+            switch (event->data.keyboard.keycode) {
+                case VC_F1:
+                    g_person_name.clear();
+                    break;
+                case VC_F2:
+                    save_a200_frame();
+                    break;
+                case VC_F3:
+                    if (cameras[0] == 0) {
+                        std::filesystem::create_directories("Photos");
+                        if (!g_person_name.empty() && !std::filesystem::exists("Photos/" + g_person_name)) {
+                            std::filesystem::rename("data", "Photos/" + g_person_name);
+                            std::filesystem::create_directories("data");
+
+                            std::cout << "Archived " << g_person_name << "'s photos." << std::endl;
+                        }
+                        else if (!g_person_name.empty() && std::filesystem::exists("Photos/" + g_person_name))
+                            std::cout << "The person's archive already exists. Please use another name." << std::endl;
+                        else
+                            std::cout << "Please input Person Name." << std::endl;
+                    }
+                    else
+                        std::cout << "Only Camera 0 is used to edit person name." << std::endl;
+                    break;
+                case VC_F5:
+                    g_taskID = 0;
+                    break;
+                case VC_UP:
+                    g_taskID--;
+                    if (g_taskID < 0) g_taskID = g_tasks.size() - 1;
+                    break;
+                case VC_DOWN:
+                    g_taskID++;
+                    if (g_taskID >= g_tasks.size()) g_taskID = 0;
+                    break;
+                case VC_LEFT:
+                    break;
+                case VC_RIGHT:
+                    break;
+                case VC_BACKSPACE:
+                    if(!g_person_name.empty())
+                        g_person_name.pop_back();
+                    break;
+                default:
+                    if (event->data.keyboard.rawcode >= 43 && event->data.keyboard.rawcode <= 122)
+                        g_person_name += event->data.keyboard.rawcode;
+                    break;
+            }
+            break;
+
+        case EVENT_KEY_RELEASED:
+            snprintf(buffer + length, sizeof(buffer) - length,
+                     ",keycode=%u,rawcode=0x%X",
+                     event->data.keyboard.keycode, event->data.keyboard.rawcode);
+            break;
+
+        case EVENT_KEY_TYPED:
+            snprintf(buffer + length, sizeof(buffer) - length,
+                     ",keychar=%lc,rawcode=%u",
+                     (wint_t) event->data.keyboard.keychar,
+                     event->data.keyboard.rawcode);
+            break;
+
+        case EVENT_MOUSE_PRESSED:
+        case EVENT_MOUSE_RELEASED:
+        case EVENT_MOUSE_CLICKED:
+        case EVENT_MOUSE_MOVED:
+        case EVENT_MOUSE_DRAGGED:
+            snprintf(buffer + length, sizeof(buffer) - length,
+                     ",x=%i,y=%i,button=%i,clicks=%i",
+                     event->data.mouse.x, event->data.mouse.y,
+                     event->data.mouse.button, event->data.mouse.clicks);
+            break;
+
+        case EVENT_MOUSE_WHEEL:
+            snprintf(buffer + length, sizeof(buffer) - length,
+                     ",type=%i,amount=%i,rotation=%i",
+                     event->data.wheel.type, event->data.wheel.amount,
+                     event->data.wheel.rotation);
+            break;
+
+        default:
+            break;
+    }
+
+//    fprintf(stdout, "%s\n",     buffer);　// keycode debug
+}
+
 // keyboard function for freeglut callback.
 template<typename T>
-void keyboardFun(T key, int32_t x, int32_t y)
+void glutkeyDef_1(T key, int32_t x, int32_t y)
+{
+    switch (key) {
+        case GLUT_KEY_LEFT:
+            g_angle -= 10;
+            break;
+        case GLUT_KEY_RIGHT:
+            g_angle += 10;
+            break;
+        default:
+            break;
+    }
+}
+
+template<typename T>
+void glutKeyDef_2(T key, int32_t x, int32_t y)
 {
     g_tasks = load_tasks("./config.txt");
     int8_t tmp = g_taskID;
@@ -164,7 +302,7 @@ void keyboardFun(T key, int32_t x, int32_t y)
     printf("Current task ID %d: %s \n", g_taskID, g_tasks[g_taskID].c_str());
 }
 
-static bool assign_g_tasks(SampleRender* g_pRender) {
+static bool assign_tasks(SampleRender* g_pRender) {
     // single thread
     int win = glutGetWindow();
     if (win - 1 < 0) {std::cerr << "Got negative window ID." << std::endl; Exit(deviceCount); return false;}
@@ -183,15 +321,15 @@ static bool assign_g_tasks(SampleRender* g_pRender) {
     return true;
 }
 
-void register_g_tasks(int argc, char** argv) {
+void register_tasks(int argc, char** argv) {
     for (int i = 0; i < deviceCount; ++i){
         std::string window_name(argv[i + 1]);
 //        window_name.push_back(argv[i + 1]);
         SampleRender * pRender = new SampleRender(("Camera " + window_name).c_str(), g_width * 3 + 300, g_height + 10);
         pRender->m_camera_id = cameras[i];
 
-        pRender->setDataCallback_multithread(assign_g_tasks); // set display callback function
-//        pRender->setKeyCallback(keyboardFun<unsigned char>); // set normal and functional keys callback
+        pRender->setDataCallback_multithread(assign_tasks); // set display callback function
+        pRender->setKeyCallback(glutkeyDef_1<unsigned char>); // set normal and functional keys callback
         pRender->init(argc, argv); // initialize OpenGL and create a window
 
         g_pRenders.push_back(pRender);
@@ -206,118 +344,6 @@ void idle () {
     }
 };
 
-// keyboard function for UIOHOOK library
-void hotkeys(uiohook_event * const event) {
-    char buffer[256] = { 0 };
-    size_t length = snprintf(buffer, sizeof(buffer),
-    "id=%i,when=%" PRIu64 ",mask=0x%X",
-            event->type, event->time, event->mask);
-
-    switch (event->type) {
-
-        case EVENT_KEY_PRESSED:
-            // If the escape key is pressed, naturally terminate the program.
-            if (event->data.keyboard.keycode == VC_ESCAPE) {
-                int status = hook_stop();
-                switch (status) {
-                    // System level errors.
-                    case UIOHOOK_ERROR_OUT_OF_MEMORY:
-                        logger_proc(LOG_LEVEL_ERROR, "Failed to allocate memory. (%#X)", status);
-                        break;
-
-                    case UIOHOOK_ERROR_X_RECORD_GET_CONTEXT:
-                        // NOTE This is the only platform specific error that occurs on hook_stop().
-                        logger_proc(LOG_LEVEL_ERROR, "Failed to get XRecord context. (%#X)", status);
-                        break;
-
-                        // Default error.
-                    case UIOHOOK_FAILURE:
-                    default:
-                        // logger_proc(LOG_LEVEL_ERROR, "An unknown hook error occurred. (%#X)", status);
-                        logger_proc(LOG_LEVEL_ERROR, "Programme exited.", status);
-                        Exit(deviceCount);
-                        exit(0);
-                }
-            }
-            break;
-
-        case EVENT_KEY_RELEASED:
-            snprintf(buffer + length, sizeof(buffer) - length,
-                     ",keycode=%u,rawcode=0x%X",
-                     event->data.keyboard.keycode, event->data.keyboard.rawcode);
-            switch (event->data.keyboard.keycode) {
-                case VC_F1:
-                    g_person_name.clear();
-                    break;
-                case VC_F2:
-                    save_a200_frame();
-                    break;
-                case VC_F3:
-                    if (cameras[0] == 0) {
-                        if (!g_person_name.empty()) {
-                            std::filesystem::create_directories("Photos");
-                            std::filesystem::rename("data", "Photos/" + g_person_name);
-                            std::filesystem::create_directories("data");
-                        }
-                        else
-                            std::cout << "Please input Person Name." << std::endl;
-                    }
-                    else
-                        std::cout << "Only Camera 0 is used to edit person name." << std::endl;
-                    break;
-                case VC_F5:
-                    g_taskID = 0;
-                    break;
-                case VC_UP:
-                    g_taskID--;
-                    if (g_taskID < 0) g_taskID = g_tasks.size() - 1;
-                    break;
-                case VC_DOWN:
-                    g_taskID++;
-                    if (g_taskID >= g_tasks.size()) g_taskID = 0;
-                    break;
-                case VC_BACKSPACE:
-                    if(!g_person_name.empty())
-                        g_person_name.pop_back();
-                    break;
-                default:
-                    g_person_name += event->data.keyboard.rawcode;
-                    break;
-            }
-            break;
-
-        case EVENT_KEY_TYPED:
-            snprintf(buffer + length, sizeof(buffer) - length,
-                     ",keychar=%lc,rawcode=%u",
-                     (wint_t) event->data.keyboard.keychar,
-                     event->data.keyboard.rawcode);
-            break;
-
-        case EVENT_MOUSE_PRESSED:
-        case EVENT_MOUSE_RELEASED:
-        case EVENT_MOUSE_CLICKED:
-        case EVENT_MOUSE_MOVED:
-        case EVENT_MOUSE_DRAGGED:
-            snprintf(buffer + length, sizeof(buffer) - length,
-                     ",x=%i,y=%i,button=%i,clicks=%i",
-                     event->data.mouse.x, event->data.mouse.y,
-                     event->data.mouse.button, event->data.mouse.clicks);
-            break;
-
-        case EVENT_MOUSE_WHEEL:
-            snprintf(buffer + length, sizeof(buffer) - length,
-                     ",type=%i,amount=%i,rotation=%i",
-                     event->data.wheel.type, event->data.wheel.amount,
-                     event->data.wheel.rotation);
-            break;
-
-        default:
-            break;
-    }
-
-//    fprintf(stdout, "%s\n",     buffer);　// keycode debug
-}
-
 void keyboardIO_thread() {
 
     keyboard_monitor(hotkeys);
@@ -327,7 +353,7 @@ void cameraIO_thread(int argc, char** argv) {
     XInitThreads();
     glutInit(&argc, argv);
 
-    register_g_tasks(argc, argv);
+    register_tasks(argc, argv);
 
 //    glutIdleFunc(idle);
     glutMainLoop();

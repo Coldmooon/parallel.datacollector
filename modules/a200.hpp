@@ -95,32 +95,34 @@ int Exit(int deviceCount)
     return 0;
 }
 
-void save_frames(const uint16_t * pData, const RGB888Pixel * s_colorImage, const RGB888Pixel * s_depthImage, const RGB888Pixel * s_IRImage, std::string task_name, std::string prefix, int8_t k, bool saveRaw) {
+void save_frames(const uint16_t * pData, const RGB888Pixel * s_colorImage, const RGB888Pixel * s_depthImage, const RGB888Pixel * s_IRImage, const std::string filename, const std::string postfix, int8_t k, bool saveRaw) {
     // pCamFrame size: 640*480*3
     // imiFrame size: 640*480*4
     // framesize: g_width * g_height
     if (s_colorImage != nullptr) {
         save_frame(pData, s_colorImage, pCamFrame->size, pCamFrame->width, pCamFrame->height,
-             task_name + prefix + "_camera[" + std::to_string(k) + "]_" + std::to_string(color_count), false);
+             filename + postfix + "_camera[" + std::to_string(k) + "]_" + std::to_string(color_count), false);
         color_count++;
     }
     if (s_depthImage != nullptr) {
         save_frame(pData, s_depthImage, imiFrame->size, imiFrame->width, imiFrame->height,
-             task_name + prefix + "_camera[" + std::to_string(k) + "]_" + std::to_string(depth_count), saveRaw);
+             filename + postfix + "_camera[" + std::to_string(k) + "]_" + std::to_string(depth_count), saveRaw);
         depth_count++;
     }
     if (s_IRImage != nullptr) {
         save_frame(pData, s_IRImage, imiFrame->size, imiFrame->width, imiFrame->height,
-             task_name + prefix + "_camera[" + std::to_string(k) + "]_" + std::to_string(ir_count), saveRaw);
+             filename + postfix + "_camera[" + std::to_string(k) + "]_" + std::to_string(ir_count), saveRaw);
         ir_count++;
     }
 }
 
 bool g_bSave = false;
+int8_t n_frames_init = 50;
+int8_t n_frames = n_frames_init;
 void save(const uint16_t * pData, const RGB888Pixel * s_colorImage, const RGB888Pixel * s_depthImage, const RGB888Pixel * s_IRImage,
-          int8_t camera_idx, std::string task_name, std::string modality) {
+          int8_t camera_idx, const std::string filename, const std::string modality) {
     if(g_bSave) {
-        save_frames(pData, s_colorImage, s_depthImage, s_IRImage, task_name, "_" +  modality, camera_idx, true);
+        save_frames(pData, s_colorImage, s_depthImage, s_IRImage, filename, modality, camera_idx, true);
     }
 }
 
@@ -353,7 +355,7 @@ bool get_depthIR(ImiStreamHandle g_DepthIR_streams, RGB888Pixel* s_depthImage, R
 }
 
 bool get_colorDepthIR(ImiStreamHandle g_DepthIR_streams, ImiCameraHandle g_camera_Device, RGB888Pixel* s_colorImage, RGB888Pixel* s_depthImage, RGB888Pixel* s_IRImage,
-                      int8_t camera_idx, std::string task_name) {
+                      int8_t camera_idx, const std::string frame_description) {
 
     bool s_bColorFrameOK = false;
     bool s_bDepth_IRFrameOK = false;
@@ -377,7 +379,7 @@ bool get_colorDepthIR(ImiStreamHandle g_DepthIR_streams, ImiCameraHandle g_camer
                     s_depthImage[i].g = s_depthImage[i].r;
                     s_depthImage[i].b = s_depthImage[i].r;
                 }
-                save(pde, nullptr, s_depthImage, nullptr, camera_idx, task_name, "_depth");
+                save(pde, nullptr, s_depthImage, nullptr, camera_idx, frame_description, "_depth_frame" + std::to_string(n_frames));
             }
             if (nullptr != s_IRImage) {
                 uint16_t * pIR = (uint16_t *) imiFrame->pData + framesize;
@@ -386,7 +388,7 @@ bool get_colorDepthIR(ImiStreamHandle g_DepthIR_streams, ImiCameraHandle g_camer
                     s_IRImage[i].g = s_IRImage[i].r;
                     s_IRImage[i].b = s_IRImage[i].r;
                 }
-                save(pIR, nullptr, nullptr, s_IRImage, camera_idx, task_name, "_IR");
+                save(pIR, nullptr, nullptr, s_IRImage, camera_idx, frame_description, "_IR_frame" + std::to_string(n_frames));
             }
         }
         else {
@@ -411,7 +413,7 @@ bool get_colorDepthIR(ImiStreamHandle g_DepthIR_streams, ImiCameraHandle g_camer
 
         if (nullptr != pCamFrame) {
             memcpy((void *) s_colorImage, (const void *) pCamFrame->pData, pCamFrame->size);
-            save(nullptr, s_colorImage, nullptr, nullptr, camera_idx, task_name, "_rgb");
+            save(nullptr, s_colorImage, nullptr, nullptr, camera_idx, frame_description, "_rgb_frame" + std::to_string(n_frames));
         }
         else {
             std::cerr << "Failed to receive the next frame in imiCamReadNextFrame() function." << std::endl;
@@ -422,16 +424,22 @@ bool get_colorDepthIR(ImiStreamHandle g_DepthIR_streams, ImiCameraHandle g_camer
         imiCamReleaseFrame(&pCamFrame);
     }
 
-    g_bSave = false;
+    if (g_bSave) {
+        n_frames--;
+        if (n_frames == 0) {
+            g_bSave = false;
+            n_frames = n_frames_init;
+        }
+    }
     return s_bColorFrameOK & s_bDepth_IRFrameOK;
 }
 
-bool get_a200_frame(int8_t winId, int camera_idx, std::string task_name, RGB888Pixel * s_colorImage, RGB888Pixel * s_depthImage, RGB888Pixel * s_IRImage) {
+bool get_a200_frame(int8_t winId, int camera_idx, RGB888Pixel * s_colorImage, RGB888Pixel * s_depthImage, RGB888Pixel * s_IRImage, const std::string frame_description) {
 
     // To check: if the following codes use two steps to capture color and Depth/IR frames individually, "xxxReadNextFrame" will be called
     // twice. In this case, the color frame and the Depth/IR frame may be captured at different time stamp, leading to async problem.
     if (s_depthImage != nullptr && s_IRImage != nullptr && s_colorImage != nullptr) {
-        return get_colorDepthIR(g_streams[winId], g_cameraDevice[winId], s_colorImage, s_depthImage, s_IRImage, camera_idx, task_name);
+        return get_colorDepthIR(g_streams[winId], g_cameraDevice[winId], s_colorImage, s_depthImage, s_IRImage, camera_idx, frame_description);
     }
     else
         return false;
