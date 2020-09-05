@@ -2,7 +2,7 @@
 Parallel data-collecting framework with multiprocessing and multithreading. The framework takes the IMI A200 camera as an example but also allows to add other camera modules provided by camera vendors. The data collector can open an arbitrary number of cameras simultaneously at a high frame rate. 
 
 ## Compile
-1. Install [OpenGL](https://www.opengl.org/) and [freeglut](http://freeglut.sourceforge.net/).
+1. Install [OpenGL](https://www.opengl.org/), [freeglut](http://freeglut.sourceforge.net/), and [OpenCV3](https://opencv.org/).
 2. Install [kwhat/libuiohook](https://github.com/kwhat/libuiohook) for global keyboard events. You can also choose other global keyboard libraries as well. Just write your own codes in `hotkeys()`.
 2. Use `cmake` to compile, or type `./make.sh` in the commmand line.
 
