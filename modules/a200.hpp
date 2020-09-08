@@ -36,9 +36,15 @@ bool g_bisPortraitDevice = false;
 const int32_t g_width  = 640;
 const int32_t g_height = 480;
 
+// frame saving count.
 int color_count = 1;
 int depth_count = 1;
 int ir_count = 1;
+
+// frame saving control
+bool g_bSave = false;
+int8_t n_frames_init = 30;
+int8_t n_frames = n_frames_init;
 
 int stop(int deviceCount)
 {
@@ -116,9 +122,6 @@ void save_frames(const uint16_t * pData, const RGB888Pixel * s_colorImage, const
     }
 }
 
-bool g_bSave = false;
-int8_t n_frames_init = 50;
-int8_t n_frames = n_frames_init;
 void save(const uint16_t * pData, const RGB888Pixel * s_colorImage, const RGB888Pixel * s_depthImage, const RGB888Pixel * s_IRImage,
           int8_t camera_idx, const std::string filename, const std::string modality) {
     if(g_bSave) {

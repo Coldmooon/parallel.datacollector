@@ -50,7 +50,8 @@ bool g_bNeedFrameSync = false;
 int8_t g_taskID = 0;
 std::vector<std::string> g_tasks;
 std::string g_person_name = "";
-int8_t g_angle = 0;
+std::string g_last_person = "";
+int16_t g_angle = 0;
 
 // -----------------------------------------------------------------------------
 static bool receiving_rendering_opengl(int winID) {
@@ -114,8 +115,9 @@ static bool receiving_rendering_opengl(int winID) {
 
         drawtexts(g_pRender, g_tasks, g_taskID);
 //        g_pRender->drawCursorXYZValue(&imiFrame[0]);
-        g_pRender->drawString(g_person_name.c_str(), 1939, 300, -1.2, 0.4, 1);
-        g_pRender->drawString(("Angle: " + std::to_string(g_angle)).c_str(), 1939, 350, -1.2, 0.4, 1);
+        g_pRender->drawString(("Person: " + g_person_name).c_str(), 1939, 300, -1.2, 0.4, 1);
+        g_pRender->drawString(("Angle : " + std::to_string(g_angle)).c_str(), 1939, 330, -1.2, 0.4, 1);
+        g_pRender->drawString(("Last Person: " + g_last_person).c_str(), 1939, 380, -1.2, 0.4, 1);
     }
     else
         std::cerr << "\nLost a frame !" << std::endl;
@@ -158,20 +160,22 @@ void hotkeys(uiohook_event * const event) {
                 }
             }
             switch (event->data.keyboard.keycode) {
-                case VC_F1:
+                case VC_SLASH: // clear person name
                     g_person_name.clear();
                     break;
-                case VC_F2:
+                case VC_F1: // save frames
                     save_a200_frame();
                     break;
-                case VC_F3:
+                case VC_F5: // archive the person's photos
                     if (cameras[0] == 0) {
                         std::filesystem::create_directories("Photos");
                         if (!g_person_name.empty() && !std::filesystem::exists("Photos/" + g_person_name)) {
                             std::filesystem::rename("data", "Photos/" + g_person_name);
                             std::filesystem::create_directories("data");
 
-                            std::cout << "Archived " << g_person_name << "'s photos." << std::endl;
+                            std::cout << "Archived " << g_person_name << "'s photos. Initialize Person Name to None." << std::endl;
+                            g_last_person = g_person_name;
+                            g_person_name.clear();
                         }
                         else if (!g_person_name.empty() && std::filesystem::exists("Photos/" + g_person_name))
                             std::cout << "The person's archive already exists. Please use another name." << std::endl;
@@ -181,7 +185,7 @@ void hotkeys(uiohook_event * const event) {
                     else
                         std::cout << "Only Camera 0 is used to edit person name." << std::endl;
                     break;
-                case VC_F5:
+                case VC_TAB: // Initialization the task ID.
                     g_taskID = 0;
                     break;
                 case VC_UP:
@@ -196,11 +200,11 @@ void hotkeys(uiohook_event * const event) {
                     break;
                 case VC_RIGHT:
                     break;
-                case VC_BACKSPACE:
+                case VC_BACKSPACE: // delete the last character from the person name.
                     if(!g_person_name.empty())
                         g_person_name.pop_back();
                     break;
-                default:
+                default: // Input characters.
                     if (event->data.keyboard.rawcode >= 43 && event->data.keyboard.rawcode <= 122)
                         g_person_name += event->data.keyboard.rawcode;
                     break;
@@ -252,9 +256,11 @@ void glutkeyDef_1(T key, int32_t x, int32_t y)
     switch (key) {
         case GLUT_KEY_LEFT:
             g_angle -= 10;
+            if(g_angle < -180) g_angle = -180;
             break;
         case GLUT_KEY_RIGHT:
             g_angle += 10;
+            if(g_angle > 180) g_angle = 180;
             break;
         default:
             break;
