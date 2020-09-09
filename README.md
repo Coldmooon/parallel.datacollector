@@ -3,8 +3,8 @@ Parallel data-collecting framework with multiprocessing and multithreading. The 
 
 ## Compile
 1. Install [OpenGL](https://www.opengl.org/), [freeglut](http://freeglut.sourceforge.net/), and [OpenCV3](https://opencv.org/).
-2. Install [kwhat/libuiohook](https://github.com/kwhat/libuiohook) for global keyboard events. You can also choose other global keyboard libraries as well. Just write your own codes in `hotkeys()`.
-3. type `cmake .`, then `make`
+2. Install [kwhat/libuiohook](https://github.com/kwhat/libuiohook) for global keyboard events. You can also choose other global keyboard libraries as well. Just write your own codes in the `hotkeys()` function.
+3. type `cmake .`, then type `make` to compile.
 
 ## Use
 
@@ -36,11 +36,13 @@ The program can save a frame with a specific `label` for classification tasks. T
 #### Pipeline
 
 ```
+0) connect a camera to a USB port.
 1) start the programme by "./UVCDepthIRViewer 0".
 2) Input the person name.
-3) adjust the perspective label and the task label.
-4) press 'F1' to save 30 frames with pre-defined labels.
-5) press 'F5' to archive the person's photos.
+3) press 'TAB'to clean the person name.
+4) adjust the perspective label and the task label.
+5) press 'F1' to save 30 frames with pre-defined labels.
+6) press 'F5' to archive the person's photos.
 ```
 
 
