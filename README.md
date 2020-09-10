@@ -17,7 +17,7 @@ First, connect cameras to PC, e.g., the A200 camera.
 The camera_id starts from 0. If camera_id is not given, the program will use all the cameras.
 ```
 
-This command will collect three modalities (RGB, Depth, and IR) simutaneously.
+This command will collect four modalities (RGB, Depth, IR, and Temperature) simutaneously.
 
 #### Label Configuration
 The program can save a frame with a specific `label` for classification tasks. The `config.txt` file defines all the labels. Simply add your label information to each line of `config.txt`. 
