@@ -15,9 +15,14 @@ First, connect cameras to PC, e.g., the A200 camera.
 ./UVCDepthIRViewer [camera_id] 
 
 The camera_id starts from 0. If camera_id is not given, the program will use all the cameras.
+
+./T3S 
+
+T3S can capture temperature information.
+
 ```
 
-This command will collect four modalities (RGB, Depth, IR, and Temperature) simutaneously.
+The two commands can run concurrently with multi instances and collect four modalities (RGB, Depth, IR, and Temperature) simutaneously.
 
 #### Label Configuration
 The program can save a frame with a specific `label` for classification tasks. The `config.txt` file defines all the labels. Simply add your label information to each line of `config.txt`. 
@@ -30,6 +35,7 @@ The program can save a frame with a specific `label` for classification tasks. T
 - 'F1': save 30 frames with a specific label
 - 'F5': archive photos of a specific person
 - 'Backspace': delete a characher from the person name.
+- 'TAB': clean the person name.
 - 'ESC': quit the program
 ```
 
@@ -37,12 +43,11 @@ The program can save a frame with a specific `label` for classification tasks. T
 
 ```
 0) connect a camera to a USB port.
-1) start the programme by "./UVCDepthIRViewer 0".
+1) start the programmes by "./UVCDepthIRViewer 0" and "./T3S".
 2) Input the person name.
-3) press 'TAB'to clean the person name.
-4) adjust the perspective label and the task label.
-5) press 'F1' to save 30 frames with pre-defined labels.
-6) press 'F5' to archive the person's photos.
+3) adjust the perspective label and the task label.
+4) press 'F1' to save 30 frames with pre-defined labels.
+5) press 'F5' to archive the person's photos.
 ```
 
 
