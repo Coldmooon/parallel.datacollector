@@ -43,7 +43,7 @@ The program can save a frame with a specific `label` for classification tasks. T
 
 ```
 0) connect a camera to a USB port.
-1) start the programmes by "./UVCDepthIRViewer 0" and "./T3S".
+1) start the programs by "./UVCDepthIRViewer 0" and "./T3S".
 2) Input the person name.
 3) adjust the perspective label and the task label.
 4) press 'F1' to save 30 frames with pre-defined labels.
