@@ -6,6 +6,9 @@ Parallel data-collecting framework with multiprocessing and multithreading. The 
 2. Install [kwhat/libuiohook](https://github.com/kwhat/libuiohook) for global keyboard events. You can also choose other global keyboard libraries as well. Just write your own codes in the `hotkeys()` function.
 3. type `cmake .`, then type `make` to compile.
 
+The project uses C++17 \<filesystem\> to process files and directories, which requires gcc version is greater than 8.0.
+Other objects can be compiled in C++11.
+
 ## Use
 
 First, connect cameras to PC, e.g., the A200 camera.
